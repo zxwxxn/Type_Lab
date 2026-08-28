@@ -1,0 +1,11 @@
+/* 화면 여백을 없애서 p5.js 좌표와 브라우저 좌표를 단순하게 맞춘다. */
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+/* 캔버스 아래에 불필요한 틈이 생기지 않게 한다. */
+canvas {
+  display: block;
+}
