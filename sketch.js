@@ -45,19 +45,6 @@ const POINT_DAMPING = 0.86;
 // 기존값: 25
 const MAX_POINT_SPEED = 20;
 
-// =====================================================
-// CONNECTOR MAGNET
-// 같은 음절의 connector가 가까워지면 서로 끌어당김
-// =====================================================
-
-// 자석 힘이 시작되는 거리
-const MAGNET_RADIUS = 100;
-
-// 자석 힘의 세기
-// 높이면: 더 강하게 끌림
-// 낮추면: 더 부드럽게 끌림
-const MAGNET_FORCE = 0.2;
-
 // -----------------------------------------
 // 반응형 캔버스 크기 계산
 // -----------------------------------------
@@ -71,15 +58,6 @@ function getCanvasWidth() {
 function getCanvasHeight() {
   return Math.max(300, windowHeight - PAGE_MARGIN * 2 - CONTROL_AREA_HEIGHT);
 }
-
-// =====================================================
-// CONNECTOR SNAP
-// connector가 아주 가까워지면 같은 위치로 딱 맞춤
-// =====================================================
-
-// 이 거리 안으로 들어오면 스냅
-const SNAP_DISTANCE = 25;
-
 
 // =====================================================
 // 2. JAMO DATA
@@ -954,205 +932,7 @@ const JAMO = {
 
     connectors: [0, 2, 4, 5, 6, 7]
   },
-
-  // ㅘ = ㅗ + ㅏ
-  'ㅘ': {
-    nodes: [
-      // ㅗ
-      { x: 60,  y: 250 }, // 0 왼쪽
-      { x: 130, y: 250 }, // 1 중심
-      { x: 130, y: 130 }, // 2 위
-      { x: 200, y: 250 }, // 3 오른쪽
-
-      // ㅏ
-      { x: 260, y: 100 }, // 4 위
-      { x: 260, y: 200 }, // 5 중심
-      { x: 330, y: 200 }, // 6 오른쪽
-      { x: 260, y: 300 }  // 7 아래
-    ],
-
-    edges: [
-      // ㅗ
-      [0, 1],
-      [1, 2],
-      [1, 3],
-
-      // ㅏ
-      [4, 5],
-      [5, 6],
-      [5, 7]
-    ],
-
-    connectors: [0, 2, 3, 4, 6, 7]
-  },
-
-
-  // ㅙ = ㅗ + ㅐ
-  'ㅙ': {
-    nodes: [
-      // ㅗ
-      { x: 40,  y: 250 }, // 0 왼쪽
-      { x: 100, y: 250 }, // 1 중심
-      { x: 100, y: 130 }, // 2 위
-      { x: 160, y: 250 }, // 3 오른쪽
-
-      // ㅐ
-      { x: 220, y: 100 }, // 4 왼쪽 위
-      { x: 220, y: 200 }, // 5 왼쪽 중심
-      { x: 220, y: 300 }, // 6 왼쪽 아래
-
-      { x: 300, y: 100 }, // 7 오른쪽 위
-      { x: 300, y: 200 }, // 8 오른쪽 중심
-      { x: 300, y: 300 }  // 9 오른쪽 아래
-    ],
-
-    edges: [
-      // ㅗ
-      [0, 1],
-      [1, 2],
-      [1, 3],
-
-      // ㅐ
-      [4, 5],
-      [5, 6],
-      [7, 8],
-      [8, 9],
-      [5, 8]
-    ],
-
-    connectors: [0, 2, 3, 4, 6, 7, 9]
-  },
-
-
-  // ㅚ = ㅗ + ㅣ
-  'ㅚ': {
-    nodes: [
-      // ㅗ
-      { x: 70,  y: 250 }, // 0 왼쪽
-      { x: 140, y: 250 }, // 1 중심
-      { x: 140, y: 130 }, // 2 위
-      { x: 210, y: 250 }, // 3 오른쪽
-
-      // ㅣ
-      { x: 280, y: 100 }, // 4 위
-      { x: 280, y: 300 }  // 5 아래
-    ],
-
-    edges: [
-      // ㅗ
-      [0, 1],
-      [1, 2],
-      [1, 3],
-
-      // ㅣ
-      [4, 5]
-    ],
-
-    connectors: [0, 2, 3, 4, 5]
-  },
-
-    // ㅝ = ㅜ + ㅓ
-  'ㅝ': {
-    nodes: [
-      // ㅜ
-      { x: 60,  y: 140 }, // 0 왼쪽
-      { x: 130, y: 140 }, // 1 중심
-      { x: 130, y: 260 }, // 2 아래
-      { x: 200, y: 140 }, // 3 오른쪽
-
-      // ㅓ
-      { x: 280, y: 100 }, // 4 위
-      { x: 280, y: 200 }, // 5 중심
-      { x: 220, y: 200 }, // 6 왼쪽
-      { x: 280, y: 300 }  // 7 아래
-    ],
-
-    edges: [
-      // ㅜ
-      [0, 1],
-      [1, 2],
-      [1, 3],
-
-      // ㅓ
-      [4, 5],
-      [5, 6],
-      [5, 7]
-    ],
-
-    connectors: [0, 2, 3, 4, 6, 7]
-  },
-
-
-  // ㅞ = ㅜ + ㅔ
-  'ㅞ': {
-    nodes: [
-      // ㅜ
-      { x: 40,  y: 140 }, // 0 왼쪽
-      { x: 100, y: 140 }, // 1 중심
-      { x: 100, y: 260 }, // 2 아래
-      { x: 160, y: 140 }, // 3 오른쪽
-
-      // ㅓ
-      { x: 230, y: 100 }, // 4 위
-      { x: 230, y: 200 }, // 5 중심
-      { x: 180, y: 200 }, // 6 왼쪽
-      { x: 230, y: 300 }, // 7 아래
-
-      // ㅣ
-      { x: 300, y: 100 }, // 8 위
-      { x: 300, y: 300 }  // 9 아래
-    ],
-
-    edges: [
-      // ㅜ
-      [0, 1],
-      [1, 2],
-      [1, 3],
-
-      // ㅓ
-      [4, 5],
-      [5, 6],
-      [5, 7],
-
-      // ㅣ
-      [8, 9]
-    ],
-
-    connectors: [0, 2, 3, 4, 6, 7, 8, 9]
-  },
-
-
-  // ㅟ = ㅜ + ㅣ
-  'ㅟ': {
-    nodes: [
-      // ㅜ
-      { x: 60,  y: 140 }, // 0 왼쪽
-      { x: 130, y: 140 }, // 1 중심
-      { x: 130, y: 260 }, // 2 아래
-      { x: 200, y: 140 }, // 3 오른쪽
-
-      // ㅣ
-      { x: 280, y: 100 }, // 4 위
-      { x: 280, y: 300 }  // 5 아래
-    ],
-
-    edges: [
-      // ㅜ
-      [0, 1],
-      [1, 2],
-      [1, 3],
-
-      // ㅣ
-      [4, 5]
-    ],
-
-    connectors: [0, 2, 3, 4, 5]
-  },
-
-
-
 };
-
 
 
 
@@ -1244,39 +1024,61 @@ const JONGSEONG = [
 // 실행 중 계속 바뀌는 값
 // =====================================================
 
+// =====================================================
+// 4. STATE
+// =====================================================
+
+// 현재 화면의 글자
 let jamoInstances = [];
 
-// 지금 마우스로 잡고 있는 물리점
-// 값이 없을 때는 null
+// 이전에 생성된 글자
+// 현재 글자가 생성되면 이 배열로 이동한다.
+let backgroundJamoInstances = [];
+
+// 마우스로 잡고 있는 점
 let draggedPoint = null;
 
+// UI
 let pointCountSlider;
 let textInput;
 let generateButton;
 
+// 마지막으로 생성된 입력값
+let lastInputText = "";
+
+// 한글 IME 상태
+let isComposing = false;
+
+// 입력 지연 타이머
+let inputGenerateTimer = null;
+
 
 // =====================================================
 // 5. SETUP
-// 페이지가 시작될 때 한 번만 실행
 // =====================================================
 
 function setup() {
 
-  // 브라우저 크기에 맞춰 캔버스를 만든다.
+  // ---------------------------------------------------
+  // 캔버스 생성
+  // ---------------------------------------------------
+
   canvas =
     createCanvas(
       getCanvasWidth(),
       getCanvasHeight()
     );
 
-  // 화면 가장자리에서 일정한 여백을 둔다.
   canvas.position(
     PAGE_MARGIN,
     PAGE_MARGIN
   );
 
 
-  // 각 edge 사이에 추가할 물리점 개수
+  // ---------------------------------------------------
+  // Point Count
+  // ---------------------------------------------------
+
   pointCountSlider =
     createSlider(
       0,
@@ -1285,56 +1087,198 @@ function setup() {
       1
     );
 
-  // Point Count가 바뀌면
-  // 현재 글자를 새 물리구조로 다시 만든다.
+
   pointCountSlider.changed(
-    generateJamosFromInput
-  );
+    () => {
 
+      // Point Count 변경 시에는
+      // 기존 글자를 배경으로 보내지 않는다.
+      generateJamosFromInput(
+        false
+      );
 
-  // 한글 입력창
-  textInput =
-    createInput('가');
-
-  textInput.size(130);
-
-  // 입력창에서 Enter를 누르면 생성 버튼과 같은 기능 실행
-  textInput.elt.addEventListener(
-    'keydown',
-    function(event) {
-      if (event.key === 'Enter') {
-        generateJamosFromInput();
-      }
     }
   );
 
 
+  // ---------------------------------------------------
+  // 한글 입력창
+  // ---------------------------------------------------
+
+  textInput =
+    createInput("가");
+
+  textInput.size(130);
+
+
+  // ---------------------------------------------------
   // 생성 버튼
+  // ---------------------------------------------------
+
   generateButton =
-    createButton('생성');
+    createButton("생성");
+
 
   generateButton.mousePressed(
-    generateJamosFromInput
+    () => {
+
+      generateJamosFromInput(
+        true
+      );
+
+    }
   );
 
 
-  // UI 위치 정리
+  // ===================================================
+  // 한글 입력 감지
+  // ===================================================
+
+  // 한글 조합 시작
+  textInput.elt.addEventListener(
+    "compositionstart",
+    () => {
+
+      isComposing = true;
+
+    }
+  );
+
+
+  // 한글 조합 완료
+  textInput.elt.addEventListener(
+    "compositionend",
+    () => {
+
+      isComposing = false;
+
+      scheduleInputGeneration();
+
+    }
+  );
+
+
+  // 일반 입력
+  textInput.elt.addEventListener(
+    "input",
+    () => {
+
+      if (isComposing) {
+        return;
+      }
+
+      scheduleInputGeneration();
+
+    }
+  );
+
+
+  // ---------------------------------------------------
+  // UI 배치
+  // ---------------------------------------------------
+
   positionControls();
 
 
-  // 처음 한 번 자모 생성
-  generateJamosFromInput();
+  // ---------------------------------------------------
+  // 처음 시작할 때 "가" 생성
+  // ---------------------------------------------------
+
+  generateJamosFromInput(
+    false
+  );
 }
 
-// 캔버스 아래 가운데에
-// 슬라이더 / 입력창 / 생성 버튼을 배치한다.
+
+// =====================================================
+// 입력이 변경되었을 때
+// =====================================================
+
+function scheduleInputGeneration() {
+
+  clearTimeout(
+    inputGenerateTimer
+  );
+
+
+  inputGenerateTimer =
+    setTimeout(
+      () => {
+
+        const currentText =
+          textInput.value().trim();
+
+
+        if (
+          currentText.length === 0
+        ) {
+
+          return;
+
+        }
+
+
+        // 현재 입력 전체가
+        // 이전 입력과 같으면 아무것도 하지 않음
+        if (
+          currentText ===
+          lastInputText
+        ) {
+
+          return;
+
+        }
+
+
+        // ------------------------------------------------
+        // 핵심
+        //
+        // 새로 입력된 마지막 한 글자만 생성한다.
+        //
+        // 예:
+        //
+        // 가
+        // ↓
+        // 가 생성
+        //
+        // 가나다
+        // ↓
+        // 가 → 배경
+        // 나 → 배경
+        // 다 → 현재
+        // ------------------------------------------------
+
+        const newCharacter =
+          currentText[
+            currentText.length - 1
+          ];
+
+
+        generateSingleCharacter(
+          newCharacter,
+          true
+        );
+
+      },
+      180
+    );
+}
+
+
+// =====================================================
+// UI POSITION
+// =====================================================
+
 function positionControls() {
 
   const centerX =
-    PAGE_MARGIN + width / 2;
+    PAGE_MARGIN +
+    width / 2;
+
 
   const controlTop =
-    PAGE_MARGIN + height;
+    PAGE_MARGIN +
+    height;
 
 
   pointCountSlider.position(
@@ -1361,76 +1305,975 @@ function positionControls() {
 // =====================================================
 
 function draw() {
+
   background(255);
 
-  // 마우스가 점 위에 있으면 손 커서로 바꿈
-  updatePointCursor();
-  // 같은 음절의 connector끼리 자석 힘 적용
-  applyConnectorMagnetism();
 
+  // -----------------------------------------
+  // 이전 글자
+  // -----------------------------------------
 
-  // 모든 자모 물리 계산
-  for (let i = 0; i < jamoInstances.length; i++) {
-    const instance = jamoInstances[i];
-
-    updateJamoPhysics(instance, i);
-  }
-
-  // 물리 계산 후 connector 스냅
-  applyConnectorSnap();
-
-  // 마지막으로 화면에 그림
-  for (let i = 0; i < jamoInstances.length; i++) {
-    const instance = jamoInstances[i];
-
-    drawJamo(instance);
-  }
-
-  fill(0);
-  noStroke();
-  text("Point Count: " + pointCountSlider.value(), 10, 390);
-}
-
-// =====================================================
-// 7. JAMO DRAWING + PHYSICS
-// Point Count로 만든 모든 점을 실제 물리점으로 사용
+  // =====================================================
+// BACKGROUND MOTION
 // =====================================================
 
-// 현재 물리점과 스프링 위치를 이용해 자모를 그림
-function drawJamo(instance) {
-  // 점과 점 사이의 스프링을 선으로 표시
-  stroke(0);
-  strokeWeight(2);
+// =====================================================
+// BACKGROUND MOTION
+// =====================================================
 
-  for (const spring of instance.physicsSprings) {
-    const pointA = instance.physicsPoints[spring.a];
-    const pointB = instance.physicsPoints[spring.b];
+function updateBackgroundJamos() {
 
-    line(pointA.x, pointA.y, pointB.x, pointB.y);
-  }
+  const time =
+    millis() * 0.001;
 
-  // 최소 관절은 검은 점, Point Count로 추가된 점은 흰 점
-  for (const point of instance.physicsPoints) {
-    if (point.isJoint) {
-      fill(0);
-      noStroke();
-      circle(point.x, point.y, JOINT_SIZE);
-    } else {
-      fill(255);
-      stroke(0);
-      strokeWeight(1);
-      circle(point.x, point.y, MIDDLE_POINT_SIZE);
+
+  for (
+    const instance
+    of backgroundJamoInstances
+  ) {
+
+    // -----------------------------------------
+    // 아주 느린 전체 이동
+    // -----------------------------------------
+
+    instance.driftX +=
+      instance.driftVX;
+
+    instance.driftY +=
+      instance.driftVY;
+
+
+    // -----------------------------------------
+    // 방향이 아주 천천히 변화
+    // → 직선 운동처럼 보이지 않게
+    // -----------------------------------------
+
+    instance.driftVX +=
+      sin(
+        time * 0.15 +
+        instance.motionSeed
+      ) *
+      0.00025;
+
+
+    instance.driftVY +=
+      cos(
+        time * 0.13 +
+        instance.motionSeed
+      ) *
+      0.00025;
+
+
+    instance.driftVX =
+      constrain(
+        instance.driftVX,
+        -0.25,
+        0.25
+      );
+
+
+    instance.driftVY =
+      constrain(
+        instance.driftVY,
+        -0.20,
+        0.20
+      );
+
+
+    // -----------------------------------------
+    // 각각의 물리점이 조금씩 꿈틀거림
+    // -----------------------------------------
+
+    for (
+      let i = 0;
+      i < instance.physicsPoints.length;
+      i++
+    ) {
+
+      const point =
+        instance.physicsPoints[i];
+
+
+      const base =
+        instance.backgroundBasePositions[i];
+
+
+      if (!base) {
+        continue;
+      }
+
+
+      // 서로 다른 점이 서로 다른 타이밍으로 움직임
+      const waveX =
+        sin(
+          time *
+          instance.wiggleSpeed +
+
+          i *
+          0.55 +
+
+          instance.motionSeed
+        );
+
+
+      const waveY =
+        cos(
+          time *
+          instance.wiggleSpeed *
+          0.8 +
+
+          i *
+          0.37 +
+
+          instance.motionSeed
+        );
+
+
+      point.x =
+        base.x +
+        instance.driftX +
+        waveX *
+        instance.wiggleAmount;
+
+
+      point.y =
+        base.y +
+        instance.driftY +
+        waveY *
+        instance.wiggleAmount;
+
     }
   }
 
-  // connector 확인용 원
-  for (const pointIndex of instance.connectorPointIndices) {
-    const point = instance.physicsPoints[pointIndex];
 
-    noFill();
-    stroke(0);
-    strokeWeight(1);
-    circle(point.x, point.y, CONNECTOR_SIZE);
+  // -----------------------------------------
+  // 화면 밖으로 완전히 나간 글자는 삭제
+  //
+  // 화면 가장자리에서 충돌하지 않는다.
+  // -----------------------------------------
+
+  const margin =
+    300;
+
+
+  backgroundJamoInstances =
+    backgroundJamoInstances.filter(
+      instance => {
+
+        const x =
+          instance.centerX +
+          instance.driftX;
+
+
+        const y =
+          instance.centerY +
+          instance.driftY;
+
+
+        return !(
+          x < -margin ||
+          x > width + margin ||
+          y < -margin ||
+          y > height + margin
+        );
+
+      }
+    );
+}
+
+// =====================================================
+// BACKGROUND DRAW
+// =====================================================
+
+function drawBackgroundJamo(
+  instance
+) {
+
+  drawingContext.globalAlpha =
+    instance.backgroundOpacity;
+
+
+  drawJamo(
+    instance
+  );
+
+
+  drawingContext.globalAlpha =
+    1.0;
+}
+
+// =====================================================
+// 7. JAMO DRAWING
+// 글자의 기존 뼈대는 그대로 유지하고
+// 그 위에 3가지 서로 다른 세균 질감을 입힌다.
+//
+// textureStyle
+// 0 = RED   : 가늘고 길게 뻗은 세균 섬유
+// 1 = YELLOW: 부드럽게 뭉친 세균 군집
+// 2 = BLUE  : 모루/철사처럼 털이 빽빽하게 붙은 세균
+// =====================================================
+
+function drawJamo(instance) {
+
+  if (instance.textureStyle === 0) {
+
+    drawRedBacteria(instance);
+
+  } else if (instance.textureStyle === 1) {
+
+    drawYellowBacteria(instance);
+
+  } else {
+
+    drawBlueBacteria(instance);
+
+  }
+}
+
+
+
+// =====================================================
+// 🔴 RED
+// =====================================================
+
+function drawRedBacteria(instance) {
+
+  const points =
+    instance.physicsPoints;
+
+
+  // ---------------------------------------------------
+  // 1. 글자의 뼈대를 따라가는 기본 세균 줄기
+  // ---------------------------------------------------
+
+  for (const spring of instance.physicsSprings) {
+
+    const a =
+      points[spring.a];
+
+    const b =
+      points[spring.b];
+
+
+    const dx =
+      b.x - a.x;
+
+    const dy =
+      b.y - a.y;
+
+
+    const length =
+      Math.hypot(dx, dy);
+
+
+    if (length === 0) continue;
+
+
+    // 아주 약한 붉은 주변 번짐
+    stroke(
+      190,
+      30,
+      30,
+      30
+    );
+
+    strokeWeight(6);
+
+    line(
+      a.x,
+      a.y,
+      b.x,
+      b.y
+    );
+
+
+    // 실제 가느다란 세균 줄기
+    stroke(
+      175,
+      25,
+      25,
+      210
+    );
+
+    strokeWeight(2.2);
+
+    line(
+      a.x,
+      a.y,
+      b.x,
+      b.y
+    );
+
+
+    // -------------------------------------------------
+    // 2. 줄기 주변에 작은 세균 돌기
+    // -------------------------------------------------
+
+    const count =
+      Math.max(
+        2,
+        Math.floor(length / 24)
+      );
+
+
+    for (
+      let i = 1;
+      i < count;
+      i++
+    ) {
+
+      const t =
+        i / count;
+
+
+      const x =
+        a.x + dx * t;
+
+      const y =
+        a.y + dy * t;
+
+
+      const nx =
+        -dy / length;
+
+      const ny =
+        dx / length;
+
+
+      const side =
+        noise(
+          x * 0.03,
+          y * 0.03
+        ) > 0.5
+          ? 1
+          : -1;
+
+
+      const branchLength =
+        6 +
+        noise(
+          y * 0.02,
+          x * 0.02
+        ) * 8;
+
+
+      // 가는 가지
+      stroke(
+        205,
+        45,
+        40,
+        145
+      );
+
+      strokeWeight(0.9);
+
+
+      line(
+        x,
+        y,
+
+        x +
+        nx *
+        branchLength *
+        side,
+
+        y +
+        ny *
+        branchLength *
+        side
+      );
+
+
+      // 작은 결절
+      noStroke();
+
+      fill(
+        185,
+        30,
+        30,
+        180
+      );
+
+      circle(
+        x,
+        y,
+        5 +
+        noise(x, y) * 4
+      );
+    }
+  }
+
+
+  // ---------------------------------------------------
+  // 3. 관절은 조금 더 밀도 있게
+  // ---------------------------------------------------
+
+  for (const point of points) {
+
+    if (!point.isJoint) continue;
+
+
+    noStroke();
+
+
+    fill(
+      190,
+      30,
+      30,
+      30
+    );
+
+    circle(
+      point.x,
+      point.y,
+      32
+    );
+
+
+    fill(
+      175,
+      25,
+      25,
+      210
+    );
+
+    circle(
+      point.x,
+      point.y,
+      13
+    );
+
+
+    fill(
+      235,
+      75,
+      65,
+      100
+    );
+
+    circle(
+      point.x - 2,
+      point.y - 2,
+      4
+    );
+  }
+}
+
+
+
+// =====================================================
+// 🟡 YELLOW
+// =====================================================
+
+function drawYellowBacteria(instance) {
+
+  const points =
+    instance.physicsPoints;
+
+
+  for (const spring of instance.physicsSprings) {
+
+    const a =
+      points[spring.a];
+
+    const b =
+      points[spring.b];
+
+
+    const dx =
+      b.x - a.x;
+
+    const dy =
+      b.y - a.y;
+
+
+    const length =
+      Math.hypot(dx, dy);
+
+
+    if (length === 0) continue;
+
+
+    // -------------------------------------------------
+    // 선을 직접 그리지 않고
+    // 선 위에 작은 둥근 입자들을 겹친다.
+    // -------------------------------------------------
+
+    const count =
+      Math.max(
+        5,
+        Math.ceil(length / 10)
+      );
+
+
+    for (
+      let i = 0;
+      i <= count;
+      i++
+    ) {
+
+      const t =
+        i / count;
+
+
+      const x =
+        a.x + dx * t;
+
+      const y =
+        a.y + dy * t;
+
+
+      // ------------------------------------------------
+      // 크기를 너무 불규칙하게 하지 않는다.
+      // → 부드럽고 귀여운 군집 느낌
+      // ------------------------------------------------
+
+      const n =
+        noise(
+          x * 0.035 +
+          instance.syllableId * 17,
+
+          y * 0.035
+        );
+
+
+      const size =
+        7 +
+        n * 8;
+
+
+      noStroke();
+
+
+      // ------------------------------------------------
+      // 아주 약한 외곽 확산
+      // ------------------------------------------------
+
+      fill(
+        240,
+        190,
+        35,
+        12
+      );
+
+      circle(
+        x,
+        y,
+        size * 2.8
+      );
+
+
+      // ------------------------------------------------
+      // 부드러운 중간층
+      // ------------------------------------------------
+
+      fill(
+        235,
+        180,
+        30,
+        45
+      );
+
+      circle(
+        x,
+        y,
+        size * 1.8
+      );
+
+
+      // ------------------------------------------------
+      // 실제 작은 세균 입자
+      // ------------------------------------------------
+
+      fill(
+        224,
+        170,
+        25,
+        180
+      );
+
+      circle(
+        x,
+        y,
+        size
+      );
+
+
+      // ------------------------------------------------
+      // 아주 작은 밝은 부분
+      // ------------------------------------------------
+
+      fill(
+        255,
+        215,
+        75,
+        90
+      );
+
+      circle(
+        x - size * 0.2,
+        y - size * 0.2,
+        size * 0.28
+      );
+    }
+  }
+
+
+  // ---------------------------------------------------
+  // 관절은 여러 입자가 뭉친 것처럼 처리
+  // ---------------------------------------------------
+
+  for (const point of points) {
+
+    if (!point.isJoint) continue;
+
+
+    noStroke();
+
+
+    // 넓은 부드러운 영역
+    fill(
+      240,
+      185,
+      30,
+      20
+    );
+
+    circle(
+      point.x,
+      point.y,
+      40
+    );
+
+
+    // 작은 입자 여러 개
+    for (
+      let i = 0;
+      i < 5;
+      i++
+    ) {
+
+      const angle =
+        TWO_PI * i / 5;
+
+
+      const radius =
+        4 +
+        noise(
+          point.x + i,
+          point.y
+        ) * 5;
+
+
+      fill(
+        225,
+        170,
+        25,
+        190
+      );
+
+
+      circle(
+        point.x +
+        cos(angle) *
+        radius,
+
+        point.y +
+        sin(angle) *
+        radius,
+
+        8 +
+        noise(i, point.x) * 5
+      );
+    }
+
+
+    // 중앙 입자
+    fill(
+      230,
+      175,
+      25,
+      200
+    );
+
+    circle(
+      point.x,
+      point.y,
+      11
+    );
+  }
+}
+
+
+
+// =====================================================
+// 🔵 BLUE
+// =====================================================
+
+function drawBlueBacteria(instance) {
+
+  const points =
+    instance.physicsPoints;
+
+
+  // ---------------------------------------------------
+  // 1. 글자의 뼈대
+  // ---------------------------------------------------
+
+  for (const spring of instance.physicsSprings) {
+
+    const a =
+      points[spring.a];
+
+    const b =
+      points[spring.b];
+
+
+    const dx =
+      b.x - a.x;
+
+    const dy =
+      b.y - a.y;
+
+
+    const length =
+      Math.hypot(dx, dy);
+
+
+    if (length === 0) continue;
+
+
+    const nx =
+      -dy / length;
+
+    const ny =
+      dx / length;
+
+
+    // -------------------------------------------------
+    // 안쪽의 굵은 파란 철사
+    // -------------------------------------------------
+
+    stroke(
+      20,
+      90,
+      175,
+      230
+    );
+
+    strokeWeight(5);
+
+
+    line(
+      a.x,
+      a.y,
+      b.x,
+      b.y
+    );
+
+
+    // -------------------------------------------------
+    // 철사 위의 밝은 중심
+    // -------------------------------------------------
+
+    stroke(
+      45,
+      125,
+      210,
+      210
+    );
+
+    strokeWeight(2);
+
+
+    line(
+      a.x,
+      a.y,
+      b.x,
+      b.y
+    );
+
+
+    // -------------------------------------------------
+    // 2. 모루처럼 빽빽한 털
+    // -------------------------------------------------
+
+    // 털 사이의 간격
+    const furStep =
+      6;
+
+
+    const furCount =
+      Math.ceil(
+        length /
+        furStep
+      );
+
+
+    for (
+      let i = 0;
+      i <= furCount;
+      i++
+    ) {
+
+      const t =
+        i / furCount;
+
+
+      const x =
+        a.x + dx * t;
+
+      const y =
+        a.y + dy * t;
+
+
+      // ---------------------------------------------
+      // 털 길이도 아주 조금씩 변화
+      // ---------------------------------------------
+
+      const n =
+        noise(
+          x * 0.045 +
+          instance.syllableId * 20,
+
+          y * 0.045
+        );
+
+
+      const furLength =
+        5 +
+        n * 9;
+
+
+      // ---------------------------------------------
+      // 양쪽으로 털이 난다.
+      // ---------------------------------------------
+
+      // 왼쪽 털
+      stroke(
+        40,
+        130,
+        215,
+        175
+      );
+
+      strokeWeight(1);
+
+
+      line(
+        x,
+        y,
+
+        x +
+        nx * furLength,
+
+        y +
+        ny * furLength
+      );
+
+
+      // 오른쪽 털
+      stroke(
+        35,
+        115,
+        200,
+        150
+      );
+
+
+      line(
+        x,
+        y,
+
+        x -
+        nx * furLength,
+
+        y -
+        ny * furLength
+      );
+
+
+      // ---------------------------------------------
+      // 털 끝에 아주 작은 세균 입자
+      // ---------------------------------------------
+
+      noStroke();
+
+      fill(
+        55,
+        145,
+        225,
+        130
+      );
+
+
+      circle(
+        x +
+        nx * furLength,
+
+        y +
+        ny * furLength,
+
+        2.5
+      );
+
+
+      circle(
+        x -
+        nx * furLength,
+
+        y -
+        ny * furLength,
+
+        2.5
+      );
+    }
+  }
+
+
+  // ---------------------------------------------------
+  // 3. 글자 전체에 작은 파란 세균 결절을 추가
+  // ---------------------------------------------------
+
+  for (const point of points) {
+
+    const size =
+      point.isJoint
+        ? 11
+        : 5;
+
+
+    noStroke();
+
+
+    // 주변 털의 밀도
+    fill(
+      35,
+      120,
+      210,
+      35
+    );
+
+    circle(
+      point.x,
+      point.y,
+      size * 3
+    );
+
+
+    // 작은 세균
+    fill(
+      35,
+      120,
+      210,
+      180
+    );
+
+    circle(
+      point.x,
+      point.y,
+      size
+    );
   }
 }
 
@@ -1499,9 +2342,6 @@ function updateJamoPhysics(instance, instanceIndex) {
     point.y += point.vy;
   }
 }
-
-
-
 
 // JAMO의 최소 nodes와 Point Count를
 // 실제 물리점 + 스프링 구조로 바꾼다.
@@ -1586,14 +2426,9 @@ function createPhysicsStructure(jamoType, offsetX, offsetY, pointCount) {
   };
 }
 
-  // 두 물리점을 연결하고
+// 두 물리점을 연결하고
 // 처음 거리를 스프링의 원래 길이(restLength)로 저장한다.
-function addPhysicsSpring(
-  points,
-  springs,
-  pointIndexA,
-  pointIndexB
-) {
+function addPhysicsSpring(points, springs, pointIndexA, pointIndexB) {
   const pointA = points[pointIndexA];
   const pointB = points[pointIndexB];
 
@@ -1601,189 +2436,9 @@ function addPhysicsSpring(
     a: pointIndexA,
     b: pointIndexB,
 
-    restLength: Math.hypot(
-      pointB.x - pointA.x,
-      pointB.y - pointA.y
-    ),
+    restLength: Math.hypot(pointB.x - pointA.x, pointB.y - pointA.y),
   });
 }
-
-
-// =====================================================
-// CONNECTOR MAGNETISM
-// 같은 음절의 connector끼리 가까워지면 서로 끌어당김
-// =====================================================
-
-function applyConnectorMagnetism() {
-
-  // 모든 자모 조합을 비교
-  for (let i = 0; i < jamoInstances.length; i++) {
-    const a = jamoInstances[i];
-
-    for (let j = i + 1; j < jamoInstances.length; j++) {
-      const b = jamoInstances[j];
-
-      // 다른 음절에서 나온 자모끼리는 반응하지 않음
-      if (a.syllableId !== b.syllableId) {
-        continue;
-      }
-
-      // a의 connector 확인
-      for (const aIndex of a.connectorPointIndices) {
-
-        // b의 connector 확인
-        for (const bIndex of b.connectorPointIndices) {
-
-          const pointA =
-            a.physicsPoints[aIndex];
-
-          const pointB =
-            b.physicsPoints[bIndex];
-
-          const dx =
-            pointB.x - pointA.x;
-
-          const dy =
-            pointB.y - pointA.y;
-
-          const distance =
-            Math.sqrt(
-              dx * dx +
-              dy * dy
-            );
-
-          // 자석 범위 밖이면 아무것도 하지 않음
-          if (
-            distance === 0 ||
-            distance > MAGNET_RADIUS
-          ) {
-            continue;
-          }
-
-          // 가까워질수록 힘이 강해짐
-          const strength =
-            (1 - distance / MAGNET_RADIUS) *
-            MAGNET_FORCE;
-
-          // 방향을 길이 1로 정규화
-          const nx =
-            dx / distance;
-
-          const ny =
-            dy / distance;
-
-          // 서로 반대 방향으로 같은 힘을 줌
-          pointA.vx += nx * strength;
-          pointA.vy += ny * strength;
-
-          pointB.vx -= nx * strength;
-          pointB.vy -= ny * strength;
-        }
-      }
-    }
-  }
-}
-
-// =====================================================
-// CONNECTOR SNAP
-// 같은 음절의 서로 다른 자모 connector끼리
-// 여러 쌍이 동시에 스냅될 수 있음
-// 한 connector는 한 번에 하나의 connector와만 스냅
-// =====================================================
-
-function applyConnectorSnap() {
-
-  // 서로 다른 자모 두 개씩 비교
-  for (let i = 0; i < jamoInstances.length; i++) {
-    const a = jamoInstances[i];
-
-    for (let j = i + 1; j < jamoInstances.length; j++) {
-      const b = jamoInstances[j];
-
-      // 다른 음절끼리는 스냅하지 않음
-      if (a.syllableId !== b.syllableId) {
-        continue;
-      }
-
-      const candidates = [];
-
-      // 스냅 거리 안에 있는 모든 connector 조합을 찾음
-      for (const aIndex of a.connectorPointIndices) {
-        const pointA = a.physicsPoints[aIndex];
-
-        for (const bIndex of b.connectorPointIndices) {
-          const pointB = b.physicsPoints[bIndex];
-
-          const distance = Math.hypot(
-            pointB.x - pointA.x,
-            pointB.y - pointA.y
-          );
-
-          if (distance <= SNAP_DISTANCE) {
-            candidates.push({
-              aIndex,
-              bIndex,
-              distance,
-            });
-          }
-        }
-      }
-
-      // 가까운 쌍부터 처리
-      candidates.sort(
-        (first, second) =>
-          first.distance - second.distance
-      );
-
-      // 하나의 connector가 여러 곳에 동시에 붙지 않게 기록
-      // const usedA = new Set();
-      // const usedB = new Set();
-
-      for (const candidate of candidates) {
-
-        // 이미 다른 connector와 스냅된 점이면 건너뜀
-        // if (
-        //   usedA.has(candidate.aIndex) ||
-        //   usedB.has(candidate.bIndex)
-        // ) {
-        //   continue;
-        // }
-
-        const pointA =
-          a.physicsPoints[candidate.aIndex];
-
-        const pointB =
-          b.physicsPoints[candidate.bIndex];
-
-        // 두 connector의 가운데 위치
-        const snapX =
-          (pointA.x + pointB.x) / 2;
-
-        const snapY =
-          (pointA.y + pointB.y) / 2;
-
-        // 같은 위치로 스냅
-        pointA.x = snapX;
-        pointA.y = snapY;
-
-        pointB.x = snapX;
-        pointB.y = snapY;
-
-        // 흔들림 제거
-        pointA.vx = 0;
-        pointA.vy = 0;
-
-        pointB.vx = 0;
-        pointB.vy = 0;
-
-        // 이 connector들은 이번 프레임에 이미 사용됨
-        // usedA.add(candidate.aIndex);
-        // usedB.add(candidate.bIndex);
-      }
-    }
-  }
-}
-
 
 // =====================================================
 // 8. INTERACTION
@@ -1896,69 +2551,563 @@ function mouseReleased() {
 // 입력된 글자를 분해하고 물리 자모 인스턴스를 생성
 // =====================================================
 
-function generateJamosFromInput() {
-  const inputText = textInput.value().trim();
-  const pointCount = pointCountSlider.value();
+// =====================================================
+// 9. HANGUL INPUT
+// =====================================================
 
-  jamoInstances = [];
-  draggedPoint = null;
+function generateJamosFromInput(
+  moveCurrentToBackground = true
+) {
 
-  const generatedJamos = [];
+  const inputText =
+    textInput.value().trim();
 
-  // 각 완성형 한글을 초성 / 중성 / 종성으로 분해한다.
-  // 현재 JAMO 데이터에 구조가 정의된 자모만 생성한다.
-  for (let syllableId = 0; syllableId < inputText.length; syllableId++) {
-    const character = inputText[syllableId];
 
-    const decomposedJamos = decomposeHangulSyllable(character);
+  if (
+    inputText.length === 0
+  ) {
 
-    for (const jamoType of decomposedJamos) {
-      if (JAMO[jamoType]) {
-        generatedJamos.push({
-          type: jamoType,
-          syllableId,
-        });
-      }
-    }
+    return;
+
   }
 
-  // 여러 자모를 화면 중앙 주변에 가로로 배치
-  // 자모 사이 간격
-  const gap = 220;
 
-  // 자모 전체가 캔버스 중앙에 오도록 시작 위치 계산
+  // ---------------------------------------------------
+  // 입력된 문자열의 마지막 글자
+  // ---------------------------------------------------
+
+  const character =
+    inputText[
+      inputText.length - 1
+    ];
+
+
+  generateSingleCharacter(
+    character,
+    moveCurrentToBackground
+  );
+}
+
+
+// =====================================================
+// 실제 한 글자를 생성
+// =====================================================
+
+function generateSingleCharacter(
+  character,
+  moveCurrentToBackground = true
+) {
+
+  const characterCode =
+    character.charCodeAt(0);
+
+
+  // 완성형 한글이 아니면 생성하지 않음
+  if (
+    characterCode < 0xAC00 ||
+    characterCode > 0xD7A3
+  ) {
+
+    return;
+
+  }
+
+
+  // ---------------------------------------------------
+  // 기존 글자를 배경으로 이동
+  // ---------------------------------------------------
+
+  if (
+    moveCurrentToBackground &&
+    jamoInstances.length > 0
+  ) {
+
+    archiveCurrentJamos();
+
+  }
+
+
+  // 현재 글자 비우기
+  jamoInstances = [];
+
+  draggedPoint = null;
+
+
+  // ---------------------------------------------------
+  // 현재 입력값 기록
+  // ---------------------------------------------------
+
+  lastInputText =
+    textInput.value().trim();
+
+
+  // ---------------------------------------------------
+  // 완성형 한글을 자모로 분해
+  // ---------------------------------------------------
+
+  const decomposedJamos =
+    decomposeHangulSyllable(
+      character
+    );
+
+
+  if (
+    decomposedJamos.length === 0
+  ) {
+
+    return;
+
+  }
+
+
+  // ---------------------------------------------------
+  // 현재 글자의 색/질감
+  //
+  // 0 = 빨강
+  // 1 = 노랑
+  // 2 = 파랑
+  //
+  // 배경으로 이동한 글자의 개수를 이용해서
+  // 순서를 결정한다.
+  // ---------------------------------------------------
+
+  const textureStyle =
+    backgroundJamoInstances.length % 3;
+
+
+  // ---------------------------------------------------
+  // 자모 배치
+  // ---------------------------------------------------
+
+  const gap =
+    220;
+
+
   const startOffsetX =
     width / 2 -
     200 -
-    ((generatedJamos.length - 1) * gap) / 2;
+    (
+      (
+        decomposedJamos.length - 1
+      ) *
+      gap
+    ) / 2;
 
-  for (let i = 0; i < generatedJamos.length; i++) {
-    const jamoType = generatedJamos[i].type;
 
-    const instanceX = startOffsetX + i * gap;
+  for (
+    let i = 0;
+    i < decomposedJamos.length;
+    i++
+  ) {
 
-    // 자모의 세로 위치도 캔버스 중앙에 맞춤
+    const jamoType =
+      decomposedJamos[i];
+
+
+    if (
+      !JAMO[jamoType]
+    ) {
+
+      continue;
+
+    }
+
+
+    const instanceX =
+      startOffsetX +
+      i * gap;
+
+
     const instanceY =
-      height / 2 - 200;
+      height / 2 -
+      200;
 
-    const physics = createPhysicsStructure(
-      jamoType,
-      instanceX,
-      instanceY,
-      pointCount,
-    );
+
+    // 기존 글자 뼈대 생성
+    const physics =
+      createPhysicsStructure(
+
+        jamoType,
+
+        instanceX,
+
+        instanceY,
+
+        pointCountSlider.value()
+
+      );
+
+
+    // -------------------------------------------------
+    // 현재 자모
+    // -------------------------------------------------
 
     jamoInstances.push({
-      type: jamoType,
 
-      syllableId: generatedJamos[i].syllableId,
+      type:
+        jamoType,
 
-      physicsPoints: physics.physicsPoints,
 
-      physicsSprings: physics.physicsSprings,
+      syllableId:
+        backgroundJamoInstances.length,
 
-      connectorPointIndices: physics.connectorPointIndices,
+
+      textureStyle:
+        textureStyle,
+
+
+      physicsPoints:
+        physics.physicsPoints,
+
+
+      physicsSprings:
+        physics.physicsSprings,
+
+
+      connectorPointIndices:
+        physics.connectorPointIndices
+
     });
+
+  }
+}
+
+// =====================================================
+// 한 글자 생성
+//
+// 현재 글자가 있다면:
+//
+// 현재 글자
+//      ↓
+// backgroundJamoInstances
+//
+// 그리고 새로운 글자를 중앙에 생성한다.
+// =====================================================
+
+function generateSingleCharacter(
+  character,
+  moveCurrentToBackground = true
+) {
+
+  // -----------------------------------------
+  // 한글인지 확인
+  // -----------------------------------------
+
+  const characterCode =
+    character.charCodeAt(0);
+
+
+  if (
+    characterCode < 0xAC00 ||
+    characterCode > 0xD7A3
+  ) {
+
+    return;
+  }
+
+
+  // -----------------------------------------
+  // 기존 현재 글자를 배경으로 이동
+  // -----------------------------------------
+
+  if (
+    moveCurrentToBackground &&
+    jamoInstances.length > 0
+  ) {
+
+    archiveCurrentJamos();
+
+  }
+
+
+  // -----------------------------------------
+  // 현재 글자는 비운다.
+  // -----------------------------------------
+
+  jamoInstances = [];
+
+  draggedPoint = null;
+
+
+  // -----------------------------------------
+  // 현재 글자 기록
+  // -----------------------------------------
+
+  lastGeneratedCharacter =
+    character;
+
+
+  // -----------------------------------------
+  // 완성형 한글 → 자모
+  // -----------------------------------------
+
+  const decomposedJamos =
+    decomposeHangulSyllable(
+      character
+    );
+
+
+  // -----------------------------------------
+  // 현재 글자의 색/질감
+  //
+  // 지금까지 정한 규칙:
+  //
+  // 첫 번째 글자 = 빨강
+  // 두 번째 글자 = 노랑
+  // 세 번째 글자 = 파랑
+  //
+  // 이후 반복
+  // -----------------------------------------
+
+  const syllableNumber =
+    backgroundJamoInstances.length;
+
+
+  const textureStyle =
+    syllableNumber % 3;
+
+
+  // -----------------------------------------
+  // 자모 생성
+  // -----------------------------------------
+
+  const gap =
+    220;
+
+
+  const startX =
+    width / 2 -
+    (
+      (
+        decomposedJamos.length - 1
+      ) *
+      gap
+    ) / 2;
+
+
+  for (
+    let i = 0;
+    i < decomposedJamos.length;
+    i++
+  ) {
+
+    const jamoType =
+      decomposedJamos[i];
+
+
+    if (
+      !JAMO[jamoType]
+    ) {
+
+      continue;
+    }
+
+
+    const physics =
+      createPhysicsStructure(
+
+        jamoType,
+
+        startX +
+        i * gap,
+
+        height / 2 -
+        200,
+
+        pointCountSlider.value()
+
+      );
+
+
+    jamoInstances.push({
+
+      type:
+        jamoType,
+
+
+      syllableId:
+        syllableNumber,
+
+
+      textureStyle:
+        textureStyle,
+
+
+      physicsPoints:
+        physics.physicsPoints,
+
+
+      physicsSprings:
+        physics.physicsSprings,
+
+
+      connectorPointIndices:
+        physics.connectorPointIndices
+
+    });
+  }
+}
+
+// =====================================================
+// ARCHIVE CURRENT JAMO
+//
+// 현재 글자를 지우는 대신
+// "배경 생물"로 전환한다.
+// =====================================================
+
+// =====================================================
+// 현재 글자를 배경 생물로 전환
+// =====================================================
+
+function archiveCurrentJamos() {
+
+  for (
+    let i = 0;
+    i < jamoInstances.length;
+    i++
+  ) {
+
+    const instance =
+      jamoInstances[i];
+
+
+    // -----------------------------------------
+    // 현재 물리점 위치 저장
+    // -----------------------------------------
+
+    instance.backgroundBasePositions =
+      instance.physicsPoints.map(
+        point => ({
+
+          x: point.x,
+          y: point.y
+
+        })
+      );
+
+
+    // -----------------------------------------
+    // 중심 위치
+    // -----------------------------------------
+
+    let centerX = 0;
+    let centerY = 0;
+
+
+    for (
+      const point
+      of instance.physicsPoints
+    ) {
+
+      centerX += point.x;
+      centerY += point.y;
+
+    }
+
+
+    if (
+      instance.physicsPoints.length > 0
+    ) {
+
+      centerX /=
+        instance.physicsPoints.length;
+
+      centerY /=
+        instance.physicsPoints.length;
+
+    }
+
+
+    instance.centerX =
+      centerX;
+
+    instance.centerY =
+      centerY;
+
+
+    // -----------------------------------------
+    // 부유 방향
+    //
+    // 화면 안에서 벽에 튕기지 않는다.
+    // -----------------------------------------
+
+    const angle =
+      random(
+        0,
+        TWO_PI
+      );
+
+
+    const speed =
+      random(
+        0.08,
+        0.18
+      );
+
+
+    instance.driftX = 0;
+    instance.driftY = 0;
+
+
+    instance.driftVX =
+      cos(angle) *
+      speed;
+
+
+    instance.driftVY =
+      sin(angle) *
+      speed;
+
+
+    // -----------------------------------------
+    // 아주 느린 꿈틀거림
+    // -----------------------------------------
+
+    instance.motionSeed =
+      random(10000);
+
+
+    instance.wiggleSpeed =
+      random(
+        0.12,
+        0.22
+      );
+
+
+    instance.wiggleAmount =
+      random(
+        0.8,
+        1.8
+      );
+
+
+    // -----------------------------------------
+    // 배경 투명도
+    // -----------------------------------------
+
+    instance.backgroundOpacity =
+      random(
+        0.12,
+        0.20
+      );
+
+
+    // -----------------------------------------
+    // 생성된 시간을 저장
+    // -----------------------------------------
+
+    instance.backgroundTime =
+      millis();
+
+
+    // -----------------------------------------
+    // 배경 배열로 이동
+    // -----------------------------------------
+
+    backgroundJamoInstances.push(
+      instance
+    );
+
   }
 }
 
@@ -1968,12 +3117,6 @@ function generateJamosFromInput() {
 // =====================================================
 
 function decomposeHangulSyllable(character) {
-    // 이미 낱자 자모를 직접 입력한 경우
-    // 분해하지 않고 그대로 사용
-    if (JAMO[character]) {
-      return [character];
-  }
-
   const characterCode = character.charCodeAt(0);
 
   const HANGUL_START = 0xac00;
@@ -2023,4 +3166,5 @@ function windowResized() {
   );
 
   positionControls();
+}
 }
