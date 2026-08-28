@@ -13,9 +13,9 @@ const CONTROL_AREA_HEIGHT = 110;
 // 점 크기 / 마우스 선택 범위
 // -----------------------------------------
 
-const JOINT_SIZE = 18;
-const MIDDLE_POINT_SIZE = 14;
-const CONNECTOR_SIZE = 28;
+const JOINT_SIZE = 5;
+const MIDDLE_POINT_SIZE = 3;
+const CONNECTOR_SIZE = 10;
 
 // 마우스로 점을 잡을 수 있는 범위
 const POINT_PICK_RADIUS = 20;
@@ -46,17 +46,43 @@ const POINT_DAMPING = 0.86;
 const MAX_POINT_SPEED = 20;
 
 // =====================================================
-// CONNECTOR MAGNET
-// 같은 음절의 connector가 가까워지면 서로 끌어당김
 // =====================================================
+// GENERATED GRAPHIC POINTS
+// 그래픽 파일을 사용하지 않고, 기본 뼈대 주변에
+// 참고 이미지처럼 불규칙한 크기/위치/밀도의 점을 생성한다.
+// =====================================================
+const GENERATED_GRAPHIC_ENABLED = true;
+const GENERATED_POINT_DENSITY = 0.82;      // 높을수록 촘촘
+const GENERATED_POINT_MIN = 180;            // 자음당 최소 점 수
+const GENERATED_POINT_MAX = 650;            // 자음당 최대 점 수
+const GENERATED_POINT_SPREAD = 10;          // 뼈대 주변 기본 퍼짐
+const GENERATED_POINT_CLUSTER_SPREAD = 24;  // 드문 큰 군집의 퍼짐
+const GENERATED_POINT_CLUSTER_RATE = 0.16;  // 군집점 비율
+const GENERATED_POINT_MIN_SIZE = 1.1;
+const GENERATED_POINT_MAX_SIZE = 6.8;
+const GENERATED_POINT_MIN_ALPHA = 115;
+const GENERATED_POINT_MAX_ALPHA = 235;
+const GENERATED_BONE_STRENGTH = 0.10;
+const GENERATED_SHAPE_STRENGTH = 0.010;
+const GENERATED_DAMPING = 0.86;
+const GENERATED_MOUSE_RADIUS = 150;
+const GENERATED_MOUSE_STRENGTH = 0.34;
 
-// 자석 힘이 시작되는 거리
-const MAGNET_RADIUS = 100;
+// 생성 직후 점들이 하나씩 자라나는 효과
+const GRAPHIC_GROWTH_ENABLED = true;
+const GRAPHIC_GROWTH_DURATION = 5000;
+const GRAPHIC_GROWTH_RANDOM_DELAY = 0.85;
+const GRAPHIC_GROWTH_SPAWN_RADIUS_MIN = 4;
+const GRAPHIC_GROWTH_SPAWN_RADIUS_MAX = 22;
+const GRAPHIC_GROWTH_SPEED = 0.055;
 
-// 자석 힘의 세기
-// 높이면: 더 강하게 끌림
-// 낮추면: 더 부드럽게 끌림
-const MAGNET_FORCE = 0.2;
+// 자음마다 하나의 점 배열을 갖는다.
+// key = jamo instance, value = generated graphic points
+let generatedGraphicClouds = new Map();
+
+function isConsonantJamo(type) {
+  return CHOSEONG.includes(type);
+}
 
 // -----------------------------------------
 // 반응형 캔버스 크기 계산
@@ -71,15 +97,6 @@ function getCanvasWidth() {
 function getCanvasHeight() {
   return Math.max(300, windowHeight - PAGE_MARGIN * 2 - CONTROL_AREA_HEIGHT);
 }
-
-// =====================================================
-// CONNECTOR SNAP
-// connector가 아주 가까워지면 같은 위치로 딱 맞춤
-// =====================================================
-
-// 이 거리 안으로 들어오면 스냅
-const SNAP_DISTANCE = 25;
-
 
 // =====================================================
 // 2. JAMO DATA
@@ -954,208 +971,7 @@ const JAMO = {
 
     connectors: [0, 2, 4, 5, 6, 7]
   },
-
-  // ㅘ = ㅗ + ㅏ
-  'ㅘ': {
-    nodes: [
-      // ㅗ
-      { x: 60,  y: 250 }, // 0 왼쪽
-      { x: 130, y: 250 }, // 1 중심
-      { x: 130, y: 130 }, // 2 위
-      { x: 200, y: 250 }, // 3 오른쪽
-
-      // ㅏ
-      { x: 260, y: 100 }, // 4 위
-      { x: 260, y: 200 }, // 5 중심
-      { x: 330, y: 200 }, // 6 오른쪽
-      { x: 260, y: 300 }  // 7 아래
-    ],
-
-    edges: [
-      // ㅗ
-      [0, 1],
-      [1, 2],
-      [1, 3],
-
-      // ㅏ
-      [4, 5],
-      [5, 6],
-      [5, 7]
-    ],
-
-    connectors: [0, 2, 3, 4, 6, 7]
-  },
-
-
-  // ㅙ = ㅗ + ㅐ
-  'ㅙ': {
-    nodes: [
-      // ㅗ
-      { x: 40,  y: 250 }, // 0 왼쪽
-      { x: 100, y: 250 }, // 1 중심
-      { x: 100, y: 130 }, // 2 위
-      { x: 160, y: 250 }, // 3 오른쪽
-
-      // ㅐ
-      { x: 220, y: 100 }, // 4 왼쪽 위
-      { x: 220, y: 200 }, // 5 왼쪽 중심
-      { x: 220, y: 300 }, // 6 왼쪽 아래
-
-      { x: 300, y: 100 }, // 7 오른쪽 위
-      { x: 300, y: 200 }, // 8 오른쪽 중심
-      { x: 300, y: 300 }  // 9 오른쪽 아래
-    ],
-
-    edges: [
-      // ㅗ
-      [0, 1],
-      [1, 2],
-      [1, 3],
-
-      // ㅐ
-      [4, 5],
-      [5, 6],
-      [7, 8],
-      [8, 9],
-      [5, 8]
-    ],
-
-    connectors: [0, 2, 3, 4, 6, 7, 9]
-  },
-
-
-  // ㅚ = ㅗ + ㅣ
-  'ㅚ': {
-    nodes: [
-      // ㅗ
-      { x: 70,  y: 250 }, // 0 왼쪽
-      { x: 140, y: 250 }, // 1 중심
-      { x: 140, y: 130 }, // 2 위
-      { x: 210, y: 250 }, // 3 오른쪽
-
-      // ㅣ
-      { x: 280, y: 100 }, // 4 위
-      { x: 280, y: 300 }  // 5 아래
-    ],
-
-    edges: [
-      // ㅗ
-      [0, 1],
-      [1, 2],
-      [1, 3],
-
-      // ㅣ
-      [4, 5]
-    ],
-
-    connectors: [0, 2, 3, 4, 5]
-  },
-
-    // ㅝ = ㅜ + ㅓ
-  'ㅝ': {
-    nodes: [
-      // ㅜ
-      { x: 60,  y: 140 }, // 0 왼쪽
-      { x: 130, y: 140 }, // 1 중심
-      { x: 130, y: 260 }, // 2 아래
-      { x: 200, y: 140 }, // 3 오른쪽
-
-      // ㅓ
-      { x: 280, y: 100 }, // 4 위
-      { x: 280, y: 200 }, // 5 중심
-      { x: 220, y: 200 }, // 6 왼쪽
-      { x: 280, y: 300 }  // 7 아래
-    ],
-
-    edges: [
-      // ㅜ
-      [0, 1],
-      [1, 2],
-      [1, 3],
-
-      // ㅓ
-      [4, 5],
-      [5, 6],
-      [5, 7]
-    ],
-
-    connectors: [0, 2, 3, 4, 6, 7]
-  },
-
-
-  // ㅞ = ㅜ + ㅔ
-  'ㅞ': {
-    nodes: [
-      // ㅜ
-      { x: 40,  y: 140 }, // 0 왼쪽
-      { x: 100, y: 140 }, // 1 중심
-      { x: 100, y: 260 }, // 2 아래
-      { x: 160, y: 140 }, // 3 오른쪽
-
-      // ㅓ
-      { x: 230, y: 100 }, // 4 위
-      { x: 230, y: 200 }, // 5 중심
-      { x: 180, y: 200 }, // 6 왼쪽
-      { x: 230, y: 300 }, // 7 아래
-
-      // ㅣ
-      { x: 300, y: 100 }, // 8 위
-      { x: 300, y: 300 }  // 9 아래
-    ],
-
-    edges: [
-      // ㅜ
-      [0, 1],
-      [1, 2],
-      [1, 3],
-
-      // ㅓ
-      [4, 5],
-      [5, 6],
-      [5, 7],
-
-      // ㅣ
-      [8, 9]
-    ],
-
-    connectors: [0, 2, 3, 4, 6, 7, 8, 9]
-  },
-
-
-  // ㅟ = ㅜ + ㅣ
-  'ㅟ': {
-    nodes: [
-      // ㅜ
-      { x: 60,  y: 140 }, // 0 왼쪽
-      { x: 130, y: 140 }, // 1 중심
-      { x: 130, y: 260 }, // 2 아래
-      { x: 200, y: 140 }, // 3 오른쪽
-
-      // ㅣ
-      { x: 280, y: 100 }, // 4 위
-      { x: 280, y: 300 }  // 5 아래
-    ],
-
-    edges: [
-      // ㅜ
-      [0, 1],
-      [1, 2],
-      [1, 3],
-
-      // ㅣ
-      [4, 5]
-    ],
-
-    connectors: [0, 2, 3, 4, 5]
-  },
-
-
-
 };
-
-
-
-
 
 // =====================================================
 // 3. HANGUL DATA
@@ -1298,16 +1114,6 @@ function setup() {
 
   textInput.size(130);
 
-  // 입력창에서 Enter를 누르면 생성 버튼과 같은 기능 실행
-  textInput.elt.addEventListener(
-    'keydown',
-    function(event) {
-      if (event.key === 'Enter') {
-        generateJamosFromInput();
-      }
-    }
-  );
-
 
   // 생성 버튼
   generateButton =
@@ -1324,6 +1130,7 @@ function setup() {
 
   // 처음 한 번 자모 생성
   generateJamosFromInput();
+
 }
 
 // 캔버스 아래 가운데에
@@ -1355,6 +1162,538 @@ function positionControls() {
   );
 }
 
+
+// =====================================================
+// MAGNETIC JOINTS
+// 서로 다른 글자의 관절(connector)이 가까워지면 자석처럼 끌어당기고,
+// 충분히 가까워지면 실제로 달라붙은 것처럼 유지한다.
+// =====================================================
+
+const MAGNETIC_ENABLED = true;
+
+// 이 거리 안으로 들어오면 서로 끌어당기기 시작한다.
+const MAGNETIC_RADIUS = 85;
+
+// 이 거리 안까지 가까워지면 "찰싹" 붙는다.
+const MAGNETIC_SNAP_DISTANCE = 22;
+
+// 붙은 뒤 유지되는 실제 관절 사이의 거리.
+// 0이면 두 관절이 완전히 겹친다.
+const MAGNETIC_BOND_DISTANCE = 7;
+
+// 가까워질수록 강해지는 흡인력
+const MAGNETIC_STRENGTH = 0.075;
+
+// 붙은 뒤 서로 같은 위치를 유지하려는 힘
+const MAGNETIC_BOND_STRENGTH = 0.22;
+
+// 붙어 있는 상태에서 이 거리 이상 벌어지면 자석 연결을 끊는다.
+const MAGNETIC_BREAK_DISTANCE = 115;
+
+// -----------------------------------------------------
+// 붙은 관절 주변 그래픽 점의 반응
+// 관절이 실제로 magnetic bond 상태일 때만 발동한다.
+// -----------------------------------------------------
+const BONDED_GRAPHIC_EFFECT_RADIUS = 88;
+const BONDED_GRAPHIC_SIZE_MULTIPLIER = 3.0;
+
+// -----------------------------------------------------
+// 관절 주변 "세포 응집" 효과
+// -----------------------------------------------------
+// 관절이 붙으면 주변 점들이 단순히 관절을 따라오는 것이 아니라,
+// 서로 가까운 점끼리도 조금씩 당겨져 작은 덩어리처럼 뭉친다.
+const BONDED_GRAPHIC_PULL_STRENGTH = 3;
+const BONDED_GRAPHIC_PULL_MAX = 3.8;
+
+// 관절 주변 점들의 서로 끌어당기는 범위
+const BONDED_GRAPHIC_COHESION_RADIUS = 42;
+
+// 가까운 점끼리 너무 겹쳐서 한 점처럼 되는 것을 막는 최소 간격
+const BONDED_GRAPHIC_MIN_DISTANCE = 5;
+
+// 주변 점끼리 뭉치는 힘
+const BONDED_GRAPHIC_COHESION_STRENGTH = 0.018;
+
+// 한 점당 검사할 이웃 수. 점이 많아도 성능을 크게 해치지 않도록 제한한다.
+const BONDED_GRAPHIC_NEIGHBOR_LIMIT = 6;
+
+// =====================================================
+// 그래픽 색상 설정
+// =====================================================
+// 여기만 수정하면 ㄱ / ㅅ / ㄴ 그래픽의 색을 각각 바꿀 수 있다.
+//
+// base   = 평소 그래픽 색
+// bonded = 관절에 가까워졌을 때 색
+//
+// 만약 항상 같은 색으로 보이게 하고 싶다면
+// base와 bonded를 같은 RGB 값으로 맞추면 된다.
+//
+// 예) 빨강: { r: 220, g: 70, b: 70 }
+//     파랑: { r: 70,  g: 120, b: 230 }
+//     보라: { r: 160, g: 90,  b: 220 }
+// =====================================================
+const GRAPHIC_COLORS = {
+  ㄱ: { base: {r:0,g:0,b:0}, bonded: {r:205,g:82,b:128} },
+  ㄲ: { base: {r:0,g:0,b:0}, bonded: {r:205,g:82,b:128} },
+  ㄴ: { base: {r:0,g:0,b:0}, bonded: {r:150,g:90,b:220} },
+  ㄷ: { base: {r:0,g:0,b:0}, bonded: {r:220,g:110,b:80} },
+  ㄸ: { base: {r:0,g:0,b:0}, bonded: {r:220,g:110,b:80} },
+  ㄹ: { base: {r:0,g:0,b:0}, bonded: {r:215,g:150,b:70} },
+  ㅁ: { base: {r:0,g:0,b:0}, bonded: {r:80,g:175,b:130} },
+  ㅂ: { base: {r:0,g:0,b:0}, bonded: {r:65,g:175,b:190} },
+  ㅃ: { base: {r:0,g:0,b:0}, bonded: {r:65,g:175,b:190} },
+  ㅅ: { base: {r:0,g:0,b:0}, bonded: {r:82,g:130,b:220} },
+  ㅆ: { base: {r:0,g:0,b:0}, bonded: {r:82,g:130,b:220} },
+  ㅇ: { base: {r:0,g:0,b:0}, bonded: {r:100,g:155,b:225} },
+  ㅈ: { base: {r:0,g:0,b:0}, bonded: {r:90,g:115,b:225} },
+  ㅉ: { base: {r:0,g:0,b:0}, bonded: {r:90,g:115,b:225} },
+  ㅊ: { base: {r:0,g:0,b:0}, bonded: {r:115,g:100,b:220} },
+  ㅋ: { base: {r:0,g:0,b:0}, bonded: {r:185,g:90,b:190} },
+  ㅌ: { base: {r:0,g:0,b:0}, bonded: {r:200,g:80,b:160} },
+  ㅍ: { base: {r:0,g:0,b:0}, bonded: {r:180,g:100,b:205} },
+  ㅎ: { base: {r:0,g:0,b:0}, bonded: {r:130,g:90,b:210} },
+};
+
+function getGraphicColor(graphicType, influence) {
+  const colors = GRAPHIC_COLORS[graphicType] || GRAPHIC_COLORS.ㄱ;
+  const t = constrain(influence, 0, 1);
+
+  return {
+    r: Math.round(colors.base.r + (colors.bonded.r - colors.base.r) * t),
+    g: Math.round(colors.base.g + (colors.bonded.g - colors.base.g) * t),
+    b: Math.round(colors.base.b + (colors.bonded.b - colors.base.b) * t),
+  };
+}
+
+// 현재 붙어 있는 관절 쌍
+let magneticBonds = [];
+
+// 관절 하나를 다른 관절과 한 번만 연결하도록 한다.
+function getMagneticPointKey(instanceIndex, pointIndex) {
+  return instanceIndex + ":" + pointIndex;
+}
+
+function isMagneticPointOccupied(instanceIndex, pointIndex) {
+  const key = getMagneticPointKey(instanceIndex, pointIndex);
+
+  return magneticBonds.some(
+    (bond) =>
+      getMagneticPointKey(bond.a.instanceIndex, bond.a.pointIndex) === key ||
+      getMagneticPointKey(bond.b.instanceIndex, bond.b.pointIndex) === key
+  );
+}
+
+// 자석 연결이 풀린 뒤 stale bond를 정리한다.
+function cleanupMagneticBonds() {
+  magneticBonds = magneticBonds.filter((bond) => {
+    const aInstance = jamoInstances[bond.a.instanceIndex];
+    const bInstance = jamoInstances[bond.b.instanceIndex];
+
+    if (!aInstance || !bInstance) return false;
+
+    const a = aInstance.physicsPoints[bond.a.pointIndex];
+    const b = bInstance.physicsPoints[bond.b.pointIndex];
+
+    if (!a || !b) return false;
+
+    const distance = Math.hypot(b.x - a.x, b.y - a.y);
+
+    // 사용자가 하나를 강하게 끌어당겨 멀리 떼면 다시 분리된다.
+    if (distance > MAGNETIC_BREAK_DISTANCE) {
+      return false;
+    }
+
+    return true;
+  });
+}
+
+// 가까운 connector끼리 새 magnetic bond를 만든다.
+function findNewMagneticBonds() {
+  if (!MAGNETIC_ENABLED) return;
+
+  for (let aInstanceIndex = 0; aInstanceIndex < jamoInstances.length; aInstanceIndex++) {
+    const aInstance = jamoInstances[aInstanceIndex];
+
+    for (const aPointIndex of aInstance.connectorPointIndices) {
+      // 이미 다른 관절에 붙어 있다면 새로운 연결을 만들지 않는다.
+      if (isMagneticPointOccupied(aInstanceIndex, aPointIndex)) continue;
+
+      const a = aInstance.physicsPoints[aPointIndex];
+
+      let closest = null;
+      let closestDistance = MAGNETIC_SNAP_DISTANCE;
+
+      for (
+        let bInstanceIndex = aInstanceIndex + 1;
+        bInstanceIndex < jamoInstances.length;
+        bInstanceIndex++
+      ) {
+        const bInstance = jamoInstances[bInstanceIndex];
+
+        for (const bPointIndex of bInstance.connectorPointIndices) {
+          if (isMagneticPointOccupied(bInstanceIndex, bPointIndex)) continue;
+
+          const b = bInstance.physicsPoints[bPointIndex];
+          const distance = Math.hypot(b.x - a.x, b.y - a.y);
+
+          if (distance <= closestDistance) {
+            closestDistance = distance;
+
+            closest = {
+              instanceIndex: bInstanceIndex,
+              pointIndex: bPointIndex,
+            };
+          }
+        }
+      }
+
+      if (closest !== null) {
+        magneticBonds.push({
+          a: {
+            instanceIndex: aInstanceIndex,
+            pointIndex: aPointIndex,
+          },
+          b: closest,
+        });
+      }
+    }
+  }
+}
+
+// 자석의 힘을 실제 물리점에 적용한다.
+// -----------------------------------------------------
+// magnetic bond에 연결된 관절 주변인지 계산
+// 같은 자모의 그래픽 점만 영향을 받도록 한다.
+// 반환값: 0(영향 없음) ~ 1(관절에 가장 가까움)
+// -----------------------------------------------------
+function getBondedGraphicEffect(instanceIndex, x, y) {
+  if (!MAGNETIC_ENABLED || magneticBonds.length === 0) {
+    return { influence: 0, jointX: x, jointY: y };
+  }
+  if (instanceIndex < 0) {
+    return { influence: 0, jointX: x, jointY: y };
+  }
+
+  let strongest = 0;
+  let strongestJointX = x;
+  let strongestJointY = y;
+
+  for (const bond of magneticBonds) {
+    let jointPointIndex = -1;
+
+    if (bond.a.instanceIndex === instanceIndex) {
+      jointPointIndex = bond.a.pointIndex;
+    } else if (bond.b.instanceIndex === instanceIndex) {
+      jointPointIndex = bond.b.pointIndex;
+    } else {
+      continue;
+    }
+
+    const instance = jamoInstances[instanceIndex];
+    const joint = instance && instance.physicsPoints[jointPointIndex];
+    if (!joint) continue;
+
+    const distance = Math.hypot(x - joint.x, y - joint.y);
+    if (distance >= BONDED_GRAPHIC_EFFECT_RADIUS) continue;
+
+    // 관절에 가까울수록 부드럽게 1에 접근한다.
+    let influence = 1 - distance / BONDED_GRAPHIC_EFFECT_RADIUS;
+    influence = influence * influence * (3 - 2 * influence);
+
+    if (influence > strongest) {
+      strongest = influence;
+      strongestJointX = joint.x;
+      strongestJointY = joint.y;
+    }
+  }
+
+  return {
+    influence: strongest,
+    jointX: strongestJointX,
+    jointY: strongestJointY,
+  };
+}
+
+function getBondedGraphicActivation(instanceIndex, x, y) {
+  return getBondedGraphicEffect(instanceIndex, x, y).influence;
+}
+
+function getGraphicPointStyle(point, instanceIndex, graphicType = "ㄱ") {
+  const influence = getBondedGraphicActivation(
+    instanceIndex,
+    point.x,
+    point.y
+  );
+
+  // 붙은 관절에 가까울수록 최대 3배까지 커진다.
+  const size = point.size * (1 + influence * (BONDED_GRAPHIC_SIZE_MULTIPLIER - 1));
+
+  // 그래픽 종류별로 base → bonded 색으로 부드럽게 전환한다.
+  const color = getGraphicColor(graphicType, influence);
+
+  return {
+    size,
+    r: color.r,
+    g: color.g,
+    b: color.b,
+    influence,
+  };
+}
+
+// 붙은 관절 주변의 점을 관절 쪽으로 아주 조금 끌어당긴다.
+// 점들이 한꺼번에 뭉치지 않고 생물 조직처럼 서서히 모이도록 속도를 제한한다.
+function applyBondedGraphicPull(point, instanceIndex) {
+  const effect = getBondedGraphicEffect(instanceIndex, point.x, point.y);
+  if (effect.influence <= 0) return;
+
+  const dx = effect.jointX - point.x;
+  const dy = effect.jointY - point.y;
+  const distance = Math.hypot(dx, dy);
+  if (distance < 0.001) return;
+
+  const force = BONDED_GRAPHIC_PULL_STRENGTH * effect.influence;
+  point.vx += (dx / distance) * force;
+  point.vy += (dy / distance) * force;
+
+  // 너무 빠르게 한곳으로 압축되지 않도록 별도의 속도 제한을 둔다.
+  const speed = Math.hypot(point.vx, point.vy);
+  if (speed > BONDED_GRAPHIC_PULL_MAX) {
+    const scale = BONDED_GRAPHIC_PULL_MAX / speed;
+    point.vx *= scale;
+    point.vy *= scale;
+  }
+}
+
+
+// -----------------------------------------------------
+// 관절 주변 점들의 "세포 응집"
+// -----------------------------------------------------
+// 관절 쪽으로 모이는 힘 + 서로 가까운 점끼리의 약한 응집력을 함께 사용한다.
+// 너무 가까워지면 약한 반발력을 넣어 한 점으로 완전히 겹치지 않게 한다.
+function applyBondedGraphicCohesion(points, instanceIndex, currentPoint) {
+  const effect = getBondedGraphicEffect(
+    instanceIndex,
+    currentPoint.x,
+    currentPoint.y
+  );
+
+  if (effect.influence <= 0) return;
+
+  // 1. 관절 주변일수록 원래 그래픽으로 돌아가려는 힘을 약하게 해서
+  //    관절 주변이 실제로 압축될 수 있게 한다.
+  const clusterInfluence = effect.influence;
+
+  // 2. 서로 가까운 점들을 조금씩 같은 방향으로 끌어당긴다.
+  //    전체 900개를 전부 비교하지 않고 일정 간격의 후보만 검사한다.
+  let neighborCount = 0;
+  let cohesionX = 0;
+  let cohesionY = 0;
+
+  const count = points.length;
+  if (count > 1) {
+    // 점의 배열 순서가 무작위이므로 여러 간격을 사용해
+    // 공간적으로 다양한 후보를 확인한다.
+    const offsets = [1, 7, 19, 43, 89, 137, 211, 307];
+
+    for (const offset of offsets) {
+      if (neighborCount >= BONDED_GRAPHIC_NEIGHBOR_LIMIT) break;
+
+      const other =
+        points[(points.indexOf(currentPoint) + offset) % count];
+
+      if (!other || other === currentPoint) continue;
+
+      const dx = other.x - currentPoint.x;
+      const dy = other.y - currentPoint.y;
+      const distance = Math.hypot(dx, dy);
+
+      if (
+        distance > BONDED_GRAPHIC_COHESION_RADIUS ||
+        distance < 0.001
+      ) {
+        continue;
+      }
+
+      // 너무 가까우면 반발, 적당히 가까우면 응집.
+      if (distance < BONDED_GRAPHIC_MIN_DISTANCE) {
+        const repulsion =
+          (1 - distance / BONDED_GRAPHIC_MIN_DISTANCE) *
+          0.045 *
+          clusterInfluence;
+
+        currentPoint.vx -= (dx / distance) * repulsion;
+        currentPoint.vy -= (dy / distance) * repulsion;
+      } else {
+        const localInfluence =
+          (1 - distance / BONDED_GRAPHIC_COHESION_RADIUS) *
+          clusterInfluence;
+
+        cohesionX += (dx / distance) * localInfluence;
+        cohesionY += (dy / distance) * localInfluence;
+        neighborCount++;
+      }
+    }
+  }
+
+  if (neighborCount > 0) {
+    currentPoint.vx +=
+      (cohesionX / neighborCount) * BONDED_GRAPHIC_COHESION_STRENGTH;
+
+    currentPoint.vy +=
+      (cohesionY / neighborCount) * BONDED_GRAPHIC_COHESION_STRENGTH;
+  }
+
+  // 3. 마지막으로 관절 중심으로 조금 더 압축한다.
+  //    기존 applyBondedGraphicPull보다 강하지만 천천히 누적되도록 한다.
+  const dx = effect.jointX - currentPoint.x;
+  const dy = effect.jointY - currentPoint.y;
+  const distance = Math.hypot(dx, dy);
+
+  if (distance > 0.001) {
+    const radialForce =
+      BONDED_GRAPHIC_PULL_STRENGTH *
+      clusterInfluence *
+      (0.35 + 0.65 * clusterInfluence);
+
+    currentPoint.vx += (dx / distance) * radialForce;
+    currentPoint.vy += (dy / distance) * radialForce;
+  }
+}
+
+function updateMagneticJoints() {
+  if (!MAGNETIC_ENABLED || jamoInstances.length < 2) return;
+
+  cleanupMagneticBonds();
+  findNewMagneticBonds();
+
+  // ---------------------------------------------------
+  // 1. 아직 붙지 않은 가까운 관절끼리 서로 끌어당김
+  // ---------------------------------------------------
+  for (let aInstanceIndex = 0; aInstanceIndex < jamoInstances.length; aInstanceIndex++) {
+    const aInstance = jamoInstances[aInstanceIndex];
+
+    for (const aPointIndex of aInstance.connectorPointIndices) {
+      const a = aInstance.physicsPoints[aPointIndex];
+
+      for (
+        let bInstanceIndex = aInstanceIndex + 1;
+        bInstanceIndex < jamoInstances.length;
+        bInstanceIndex++
+      ) {
+        const bInstance = jamoInstances[bInstanceIndex];
+
+        for (const bPointIndex of bInstance.connectorPointIndices) {
+          const b = bInstance.physicsPoints[bPointIndex];
+
+          const dx = b.x - a.x;
+          const dy = b.y - a.y;
+          const distance = Math.hypot(dx, dy);
+
+          if (distance <= 0 || distance > MAGNETIC_RADIUS) continue;
+
+          // 이미 붙어 있는 쌍은 아래 bond 물리에서 처리한다.
+          const alreadyBonded = magneticBonds.some(
+            (bond) =>
+              (bond.a.instanceIndex === aInstanceIndex &&
+                bond.a.pointIndex === aPointIndex &&
+                bond.b.instanceIndex === bInstanceIndex &&
+                bond.b.pointIndex === bPointIndex) ||
+              (bond.a.instanceIndex === bInstanceIndex &&
+                bond.a.pointIndex === bPointIndex &&
+                bond.b.instanceIndex === aInstanceIndex &&
+                bond.b.pointIndex === aPointIndex)
+          );
+
+          if (alreadyBonded) continue;
+
+          // 멀리 있을 때는 약하게, 가까워질수록 강하게 끌어당긴다.
+          const normalizedDistance =
+            1 - distance / MAGNETIC_RADIUS;
+
+          const attraction =
+            normalizedDistance * normalizedDistance * MAGNETIC_STRENGTH;
+
+          const forceX = (dx / distance) * attraction;
+          const forceY = (dy / distance) * attraction;
+
+          // 잡고 있는 관절은 mouse 위치가 우선이므로
+          // 그 반대편 관절에 더 강하게 힘을 전달한다.
+          const aDragged =
+            draggedPoint &&
+            draggedPoint.instanceIndex === aInstanceIndex &&
+            draggedPoint.pointIndex === aPointIndex;
+
+          const bDragged =
+            draggedPoint &&
+            draggedPoint.instanceIndex === bInstanceIndex &&
+            draggedPoint.pointIndex === bPointIndex;
+
+          if (!aDragged) {
+            a.vx += forceX;
+            a.vy += forceY;
+          }
+
+          if (!bDragged) {
+            b.vx -= forceX;
+            b.vy -= forceY;
+          }
+        }
+      }
+    }
+  }
+
+  // ---------------------------------------------------
+  // 2. "찰싹" 붙은 관절은 bond 거리까지 강하게 유지
+  // ---------------------------------------------------
+  for (const bond of magneticBonds) {
+    const aInstance = jamoInstances[bond.a.instanceIndex];
+    const bInstance = jamoInstances[bond.b.instanceIndex];
+
+    if (!aInstance || !bInstance) continue;
+
+    const a = aInstance.physicsPoints[bond.a.pointIndex];
+    const b = bInstance.physicsPoints[bond.b.pointIndex];
+
+    if (!a || !b) continue;
+
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const distance = Math.hypot(dx, dy);
+
+    if (distance <= 0.001) continue;
+
+    const directionX = dx / distance;
+    const directionY = dy / distance;
+
+    const error = distance - MAGNETIC_BOND_DISTANCE;
+
+    const forceX =
+      directionX * error * MAGNETIC_BOND_STRENGTH;
+    const forceY =
+      directionY * error * MAGNETIC_BOND_STRENGTH;
+
+    const aDragged =
+      draggedPoint &&
+      draggedPoint.instanceIndex === bond.a.instanceIndex &&
+      draggedPoint.pointIndex === bond.a.pointIndex;
+
+    const bDragged =
+      draggedPoint &&
+      draggedPoint.instanceIndex === bond.b.instanceIndex &&
+      draggedPoint.pointIndex === bond.b.pointIndex;
+
+    if (!aDragged) {
+      a.vx += forceX;
+      a.vy += forceY;
+    }
+
+    if (!bDragged) {
+      b.vx -= forceX;
+      b.vy -= forceY;
+    }
+  }
+}
+
 // =====================================================
 // 6. DRAW
 // 매 프레임 물리를 계산하고 화면을 다시 그림
@@ -1363,32 +1702,29 @@ function positionControls() {
 function draw() {
   background(255);
 
-  // 마우스가 점 위에 있으면 손 커서로 바꿈
-  updatePointCursor();
-  // 같은 음절의 connector끼리 자석 힘 적용
-  applyConnectorMagnetism();
-
-
-  // 모든 자모 물리 계산
   for (let i = 0; i < jamoInstances.length; i++) {
     const instance = jamoInstances[i];
-
     updateJamoPhysics(instance, i);
   }
 
-  // 물리 계산 후 connector 스냅
-  applyConnectorSnap();
+  // 글자의 connector 관절끼리 가까워졌는지 검사하고
+  // 자석처럼 끌어당기거나 붙어 있도록 만든다.
+  updateMagneticJoints();
 
-  // 마지막으로 화면에 그림
+  updateGeneratedGraphicPoints();
+
   for (let i = 0; i < jamoInstances.length; i++) {
-    const instance = jamoInstances[i];
-
-    drawJamo(instance);
+    drawJamo(jamoInstances[i]);
   }
+
+  drawGeneratedGraphicPoints();
+
+  updatePointCursor();
 
   fill(0);
   noStroke();
   text("Point Count: " + pointCountSlider.value(), 10, 390);
+
 }
 
 // =====================================================
@@ -1399,8 +1735,8 @@ function draw() {
 // 현재 물리점과 스프링 위치를 이용해 자모를 그림
 function drawJamo(instance) {
   // 점과 점 사이의 스프링을 선으로 표시
-  stroke(0);
-  strokeWeight(2);
+  stroke(180);
+  strokeWeight(1.2);
 
   for (const spring of instance.physicsSprings) {
     const pointA = instance.physicsPoints[spring.a];
@@ -1412,7 +1748,7 @@ function drawJamo(instance) {
   // 최소 관절은 검은 점, Point Count로 추가된 점은 흰 점
   for (const point of instance.physicsPoints) {
     if (point.isJoint) {
-      fill(0);
+      fill(180);
       noStroke();
       circle(point.x, point.y, JOINT_SIZE);
     } else {
@@ -1500,9 +1836,6 @@ function updateJamoPhysics(instance, instanceIndex) {
   }
 }
 
-
-
-
 // JAMO의 최소 nodes와 Point Count를
 // 실제 물리점 + 스프링 구조로 바꾼다.
 function createPhysicsStructure(jamoType, offsetX, offsetY, pointCount) {
@@ -1586,14 +1919,9 @@ function createPhysicsStructure(jamoType, offsetX, offsetY, pointCount) {
   };
 }
 
-  // 두 물리점을 연결하고
+// 두 물리점을 연결하고
 // 처음 거리를 스프링의 원래 길이(restLength)로 저장한다.
-function addPhysicsSpring(
-  points,
-  springs,
-  pointIndexA,
-  pointIndexB
-) {
+function addPhysicsSpring(points, springs, pointIndexA, pointIndexB) {
   const pointA = points[pointIndexA];
   const pointB = points[pointIndexB];
 
@@ -1601,189 +1929,9 @@ function addPhysicsSpring(
     a: pointIndexA,
     b: pointIndexB,
 
-    restLength: Math.hypot(
-      pointB.x - pointA.x,
-      pointB.y - pointA.y
-    ),
+    restLength: Math.hypot(pointB.x - pointA.x, pointB.y - pointA.y),
   });
 }
-
-
-// =====================================================
-// CONNECTOR MAGNETISM
-// 같은 음절의 connector끼리 가까워지면 서로 끌어당김
-// =====================================================
-
-function applyConnectorMagnetism() {
-
-  // 모든 자모 조합을 비교
-  for (let i = 0; i < jamoInstances.length; i++) {
-    const a = jamoInstances[i];
-
-    for (let j = i + 1; j < jamoInstances.length; j++) {
-      const b = jamoInstances[j];
-
-      // 다른 음절에서 나온 자모끼리는 반응하지 않음
-      if (a.syllableId !== b.syllableId) {
-        continue;
-      }
-
-      // a의 connector 확인
-      for (const aIndex of a.connectorPointIndices) {
-
-        // b의 connector 확인
-        for (const bIndex of b.connectorPointIndices) {
-
-          const pointA =
-            a.physicsPoints[aIndex];
-
-          const pointB =
-            b.physicsPoints[bIndex];
-
-          const dx =
-            pointB.x - pointA.x;
-
-          const dy =
-            pointB.y - pointA.y;
-
-          const distance =
-            Math.sqrt(
-              dx * dx +
-              dy * dy
-            );
-
-          // 자석 범위 밖이면 아무것도 하지 않음
-          if (
-            distance === 0 ||
-            distance > MAGNET_RADIUS
-          ) {
-            continue;
-          }
-
-          // 가까워질수록 힘이 강해짐
-          const strength =
-            (1 - distance / MAGNET_RADIUS) *
-            MAGNET_FORCE;
-
-          // 방향을 길이 1로 정규화
-          const nx =
-            dx / distance;
-
-          const ny =
-            dy / distance;
-
-          // 서로 반대 방향으로 같은 힘을 줌
-          pointA.vx += nx * strength;
-          pointA.vy += ny * strength;
-
-          pointB.vx -= nx * strength;
-          pointB.vy -= ny * strength;
-        }
-      }
-    }
-  }
-}
-
-// =====================================================
-// CONNECTOR SNAP
-// 같은 음절의 서로 다른 자모 connector끼리
-// 여러 쌍이 동시에 스냅될 수 있음
-// 한 connector는 한 번에 하나의 connector와만 스냅
-// =====================================================
-
-function applyConnectorSnap() {
-
-  // 서로 다른 자모 두 개씩 비교
-  for (let i = 0; i < jamoInstances.length; i++) {
-    const a = jamoInstances[i];
-
-    for (let j = i + 1; j < jamoInstances.length; j++) {
-      const b = jamoInstances[j];
-
-      // 다른 음절끼리는 스냅하지 않음
-      if (a.syllableId !== b.syllableId) {
-        continue;
-      }
-
-      const candidates = [];
-
-      // 스냅 거리 안에 있는 모든 connector 조합을 찾음
-      for (const aIndex of a.connectorPointIndices) {
-        const pointA = a.physicsPoints[aIndex];
-
-        for (const bIndex of b.connectorPointIndices) {
-          const pointB = b.physicsPoints[bIndex];
-
-          const distance = Math.hypot(
-            pointB.x - pointA.x,
-            pointB.y - pointA.y
-          );
-
-          if (distance <= SNAP_DISTANCE) {
-            candidates.push({
-              aIndex,
-              bIndex,
-              distance,
-            });
-          }
-        }
-      }
-
-      // 가까운 쌍부터 처리
-      candidates.sort(
-        (first, second) =>
-          first.distance - second.distance
-      );
-
-      // 하나의 connector가 여러 곳에 동시에 붙지 않게 기록
-      // const usedA = new Set();
-      // const usedB = new Set();
-
-      for (const candidate of candidates) {
-
-        // 이미 다른 connector와 스냅된 점이면 건너뜀
-        // if (
-        //   usedA.has(candidate.aIndex) ||
-        //   usedB.has(candidate.bIndex)
-        // ) {
-        //   continue;
-        // }
-
-        const pointA =
-          a.physicsPoints[candidate.aIndex];
-
-        const pointB =
-          b.physicsPoints[candidate.bIndex];
-
-        // 두 connector의 가운데 위치
-        const snapX =
-          (pointA.x + pointB.x) / 2;
-
-        const snapY =
-          (pointA.y + pointB.y) / 2;
-
-        // 같은 위치로 스냅
-        pointA.x = snapX;
-        pointA.y = snapY;
-
-        pointB.x = snapX;
-        pointB.y = snapY;
-
-        // 흔들림 제거
-        pointA.vx = 0;
-        pointA.vy = 0;
-
-        pointB.vx = 0;
-        pointB.vy = 0;
-
-        // 이 connector들은 이번 프레임에 이미 사용됨
-        // usedA.add(candidate.aIndex);
-        // usedB.add(candidate.bIndex);
-      }
-    }
-  }
-}
-
 
 // =====================================================
 // 8. INTERACTION
@@ -1805,8 +1953,8 @@ function updatePointCursor() {
         mouseY - point.y
       );
 
-      // 검은 관절점 / 흰 중간점 모두 같은 방식으로 검사
-      if (distance <= POINT_PICK_RADIUS) {
+      // 실제 관절만 잡을 수 있다.
+      if (point.isJoint && distance <= POINT_PICK_RADIUS) {
         isOverPoint = true;
         break;
       }
@@ -1840,6 +1988,7 @@ function mousePressed() {
 
     for (let pointIndex = 0; pointIndex < points.length; pointIndex++) {
       const point = points[pointIndex];
+      if (!point.isJoint) continue;
 
       const distance = Math.hypot(mouseX - point.x, mouseY - point.y);
 
@@ -1902,14 +2051,13 @@ function generateJamosFromInput() {
 
   jamoInstances = [];
   draggedPoint = null;
+  magneticBonds = [];
+  generatedGraphicClouds = new Map();
 
   const generatedJamos = [];
 
-  // 각 완성형 한글을 초성 / 중성 / 종성으로 분해한다.
-  // 현재 JAMO 데이터에 구조가 정의된 자모만 생성한다.
   for (let syllableId = 0; syllableId < inputText.length; syllableId++) {
     const character = inputText[syllableId];
-
     const decomposedJamos = decomposeHangulSyllable(character);
 
     for (const jamoType of decomposedJamos) {
@@ -1922,11 +2070,7 @@ function generateJamosFromInput() {
     }
   }
 
-  // 여러 자모를 화면 중앙 주변에 가로로 배치
-  // 자모 사이 간격
   const gap = 220;
-
-  // 자모 전체가 캔버스 중앙에 오도록 시작 위치 계산
   const startOffsetX =
     width / 2 -
     200 -
@@ -1934,12 +2078,8 @@ function generateJamosFromInput() {
 
   for (let i = 0; i < generatedJamos.length; i++) {
     const jamoType = generatedJamos[i].type;
-
     const instanceX = startOffsetX + i * gap;
-
-    // 자모의 세로 위치도 캔버스 중앙에 맞춤
-    const instanceY =
-      height / 2 - 200;
+    const instanceY = height / 2 - 200;
 
     const physics = createPhysicsStructure(
       jamoType,
@@ -1948,17 +2088,25 @@ function generateJamosFromInput() {
       pointCount,
     );
 
-    jamoInstances.push({
+    const instance = {
       type: jamoType,
-
       syllableId: generatedJamos[i].syllableId,
-
       physicsPoints: physics.physicsPoints,
-
       physicsSprings: physics.physicsSprings,
-
       connectorPointIndices: physics.connectorPointIndices,
-    });
+      isGraphicSkeleton: false,
+    };
+
+    jamoInstances.push(instance);
+
+    // 모든 자음은 기본 JAMO 뼈대를 그대로 사용하고,
+    // 그 위에 불규칙한 점 구름만 올린다.
+    if (GENERATED_GRAPHIC_ENABLED && isConsonantJamo(jamoType)) {
+      generatedGraphicClouds.set(
+        instance,
+        createGeneratedGraphicPointCloud(instance)
+      );
+    }
   }
 }
 
@@ -1968,12 +2116,6 @@ function generateJamosFromInput() {
 // =====================================================
 
 function decomposeHangulSyllable(character) {
-    // 이미 낱자 자모를 직접 입력한 경우
-    // 분해하지 않고 그대로 사용
-    if (JAMO[character]) {
-      return [character];
-  }
-
   const characterCode = character.charCodeAt(0);
 
   const HANGUL_START = 0xac00;
@@ -2004,6 +2146,302 @@ function decomposeHangulSyllable(character) {
   return decomposedResult;
 }
 
+
+// =====================================================
+// =====================================================
+// GENERATED POINT CLOUD
+// 기본 뼈대의 각 edge를 따라 참고 이미지와 같은
+// 불규칙한 세포형 점을 절차적으로 생성한다.
+// =====================================================
+
+function smoothstep01(t) {
+  t = constrain(t, 0, 1);
+  return t * t * (3 - 2 * t);
+}
+
+function randomGaussian() {
+  // Box-Muller. 평균 0, 표준편차 1에 가까운 분포.
+  let u = 0, v = 0;
+  while (u === 0) u = random();
+  while (v === 0) v = random();
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(TWO_PI * v);
+}
+
+function pointToSegmentInfo(px, py, ax, ay, bx, by) {
+  const dx = bx - ax;
+  const dy = by - ay;
+  const len2 = dx * dx + dy * dy;
+  if (len2 < 0.0001) {
+    return { distance: Math.hypot(px - ax, py - ay), t: 0 };
+  }
+  const t = constrain(((px - ax) * dx + (py - ay) * dy) / len2, 0, 1);
+  const qx = ax + dx * t;
+  const qy = ay + dy * t;
+  return { distance: Math.hypot(px - qx, py - qy), t };
+}
+
+function getGeneratedPointTarget(point, instance) {
+  if (point.edgeIndex < 0) return { x: point.baseX, y: point.baseY };
+
+  const spring = instance.physicsSprings[point.edgeIndex];
+  if (!spring) return { x: point.baseX, y: point.baseY };
+
+  const a = instance.physicsPoints[spring.a];
+  const b = instance.physicsPoints[spring.b];
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const len = Math.hypot(dx, dy);
+  if (len < 0.001) return { x: point.baseX, y: point.baseY };
+
+  const dirX = dx / len;
+  const dirY = dy / len;
+  const normalX = -dirY;
+  const normalY = dirX;
+
+  return {
+    x: a.x + dirX * point.edgeT * len + normalX * point.normalOffset,
+    y: a.y + dirY * point.edgeT * len + normalY * point.normalOffset,
+  };
+}
+
+function createGeneratedGraphicPointCloud(instance) {
+  const points = [];
+  const springs = instance.physicsSprings;
+  let totalLength = 0;
+
+  for (const spring of springs) {
+    const a = instance.physicsPoints[spring.a];
+    const b = instance.physicsPoints[spring.b];
+    totalLength += Math.hypot(b.x - a.x, b.y - a.y);
+  }
+
+  const targetCount = constrain(
+    Math.round(totalLength * GENERATED_POINT_DENSITY),
+    GENERATED_POINT_MIN,
+    GENERATED_POINT_MAX
+  );
+
+  // edge 길이에 비례해 점을 배분하되, 매번 약간 랜덤하게 만든다.
+  const edgeCounts = springs.map((spring) => {
+    const a = instance.physicsPoints[spring.a];
+    const b = instance.physicsPoints[spring.b];
+    const len = Math.hypot(b.x - a.x, b.y - a.y);
+    return Math.max(4, Math.round(targetCount * (len / Math.max(totalLength, 1))));
+  });
+
+  while (edgeCounts.reduce((a, b) => a + b, 0) > targetCount) {
+    const i = floor(random(edgeCounts.length));
+    if (edgeCounts[i] > 4) edgeCounts[i]--;
+  }
+  while (edgeCounts.reduce((a, b) => a + b, 0) < targetCount) {
+    edgeCounts[floor(random(edgeCounts.length))]++;
+  }
+
+  for (let edgeIndex = 0; edgeIndex < springs.length; edgeIndex++) {
+    const spring = springs[edgeIndex];
+    const a = instance.physicsPoints[spring.a];
+    const b = instance.physicsPoints[spring.b];
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const len = Math.hypot(dx, dy);
+    if (len < 0.001) continue;
+
+    const dirX = dx / len;
+    const dirY = dy / len;
+    const normalX = -dirY;
+    const normalY = dirX;
+
+    for (let i = 0; i < edgeCounts[edgeIndex]; i++) {
+      // 균일한 줄이 아니라 덩어리가 생기도록 t도 약간 흔든다.
+      let t = (i + random(0.08, 0.92)) / edgeCounts[edgeIndex];
+      t = constrain(t + randomGaussian() * 0.018, 0, 1);
+
+      // 대부분은 뼈대 가까이, 일부는 넓게 퍼지는 군집점.
+      const clustered = random() < GENERATED_POINT_CLUSTER_RATE;
+      const spread = clustered
+        ? randomGaussian() * GENERATED_POINT_CLUSTER_SPREAD
+        : randomGaussian() * GENERATED_POINT_SPREAD;
+
+      const alongJitter = randomGaussian() * Math.min(5, len * 0.025);
+      const x = a.x + dirX * (t * len + alongJitter) + normalX * spread;
+      const y = a.y + dirY * (t * len + alongJitter) + normalY * spread;
+
+      const sizeBias = clustered ? random(2.2, 1) : random(0.75, 1.15);
+      const size = constrain(
+        randomGaussian() * 0.75 + random(1.4, 3.1) * sizeBias,
+        GENERATED_POINT_MIN_SIZE,
+        GENERATED_POINT_MAX_SIZE
+      );
+
+      const alpha = random(GENERATED_POINT_MIN_ALPHA, GENERATED_POINT_MAX_ALPHA);
+
+      points.push({
+        x, y,
+        baseX: x,
+        baseY: y,
+        vx: 0,
+        vy: 0,
+        size,
+        baseSize: size,
+        alpha,
+        edgeIndex,
+        edgeT: t,
+        normalOffset: spread,
+        growthStart: random(0, GRAPHIC_GROWTH_RANDOM_DELAY),
+        growthJitterX: randomGaussian() * random(2, 8),
+        growthJitterY: randomGaussian() * random(2, 8),
+        growthPhase: random(TWO_PI),
+      });
+    }
+  }
+
+  initializeGeneratedGrowth(points);
+  return points;
+}
+
+function initializeGeneratedGrowth(points) {
+  const start = millis();
+  for (const point of points) {
+    point.createdAt = start;
+    const angle = random(TWO_PI);
+    const radius = random(
+      GENERATED_POINT_CLUSTER_RATE > 0 ? GRAPHIC_GROWTH_SPAWN_RADIUS_MIN : 3,
+      GRAPHIC_GROWTH_SPAWN_RADIUS_MAX
+    );
+    point.x = point.baseX + Math.cos(angle) * radius + point.growthJitterX;
+    point.y = point.baseY + Math.sin(angle) * radius + point.growthJitterY;
+  }
+}
+
+function updateGeneratedGrowth(point) {
+  if (!GRAPHIC_GROWTH_ENABLED) return false;
+
+  const elapsed = millis() - point.createdAt;
+  const startDelay = GRAPHIC_GROWTH_DURATION * point.growthStart;
+  if (elapsed < startDelay) return true;
+
+  const localT = constrain(
+    (elapsed - startDelay) /
+      Math.max(1, GRAPHIC_GROWTH_DURATION - startDelay),
+    0,
+    1
+  );
+
+  const eased = smoothstep01(localT);
+  const targetX = point.baseX;
+  const targetY = point.baseY;
+
+  point.vx += (targetX - point.x) * (GRAPHIC_GROWTH_SPEED + eased * 0.025);
+  point.vy += (targetY - point.y) * (GRAPHIC_GROWTH_SPEED + eased * 0.025);
+
+  if (localT >= 1) {
+    return false;
+  }
+  return true;
+}
+
+function getGeneratedGrowthVisibility(point) {
+  if (!GRAPHIC_GROWTH_ENABLED) return 1;
+  const elapsed = millis() - point.createdAt;
+  const startDelay = GRAPHIC_GROWTH_DURATION * point.growthStart;
+  if (elapsed < startDelay) return 0;
+  const localT = constrain(
+    (elapsed - startDelay) /
+      Math.max(1, GRAPHIC_GROWTH_DURATION - startDelay),
+    0,
+    1
+  );
+  return smoothstep01(localT);
+}
+
+function updateGeneratedGraphicPoints() {
+  if (generatedGraphicClouds.size === 0) return;
+
+  for (const [instance, points] of generatedGraphicClouds.entries()) {
+    const instanceIndex = jamoInstances.indexOf(instance);
+    if (instanceIndex < 0) continue;
+
+    for (const point of points) {
+      const growing = updateGeneratedGrowth(point);
+
+      if (!growing) {
+        const target = getGeneratedPointTarget(point, instance);
+        point.vx += (target.x - point.x) * GENERATED_BONE_STRENGTH;
+        point.vy += (target.y - point.y) * GENERATED_BONE_STRENGTH;
+
+        // 기본 뼈대에 붙어 있으려는 아주 약한 복원력.
+        point.vx += (point.baseX - point.x) * GENERATED_SHAPE_STRENGTH;
+        point.vy += (point.baseY - point.y) * GENERATED_SHAPE_STRENGTH;
+      }
+
+      // 관절을 끌면 가까운 그래픽 점부터 강하게 따라온다.
+      if (draggedPoint !== null) {
+        const draggedInstance = jamoInstances[draggedPoint.instanceIndex];
+        if (draggedInstance) {
+          const dragged = draggedInstance.physicsPoints[draggedPoint.pointIndex];
+          const distance = Math.hypot(point.x - dragged.x, point.y - dragged.y);
+          if (distance < GENERATED_MOUSE_RADIUS) {
+            let influence = 1 - distance / GENERATED_MOUSE_RADIUS;
+            influence *= influence;
+            const mouseVX = mouseX - pmouseX;
+            const mouseVY = mouseY - pmouseY;
+            point.vx += mouseVX * GENERATED_MOUSE_STRENGTH * influence;
+            point.vy += mouseVY * GENERATED_MOUSE_STRENGTH * influence;
+          }
+        }
+      }
+
+      // magnetic bond가 생기면 기존 그래픽과 똑같이
+      // 관절 주변 점 응집/끌림 효과를 적용한다.
+      applyBondedGraphicCohesion(points, instanceIndex, point);
+
+      point.vx *= GENERATED_DAMPING;
+      point.vy *= GENERATED_DAMPING;
+
+      const speed = Math.hypot(point.vx, point.vy);
+      if (speed > MAX_POINT_SPEED) {
+        point.vx = (point.vx / speed) * MAX_POINT_SPEED;
+        point.vy = (point.vy / speed) * MAX_POINT_SPEED;
+      }
+
+      point.x += point.vx;
+      point.y += point.vy;
+    }
+  }
+}
+
+function drawGeneratedGraphicPoints() {
+  for (const [instance, points] of generatedGraphicClouds.entries()) {
+    const instanceIndex = jamoInstances.indexOf(instance);
+    if (instanceIndex < 0) continue;
+
+    noStroke();
+
+    for (const point of points) {
+      const style = getGraphicPointStyle(
+        point,
+        instanceIndex,
+        instance.type
+      );
+
+      const visibility = getGeneratedGrowthVisibility(point);
+      const pulse =
+        1 + Math.sin(frameCount * 0.025 + point.growthPhase) * 0.025;
+
+      fill(
+        style.r,
+        style.g,
+        style.b,
+        point.alpha * visibility
+      );
+      circle(
+        point.x,
+        point.y,
+        style.size * pulse * visibility
+      );
+    }
+  }
+}
 
 // =====================================================
 // 11. RESPONSIVE CANVAS

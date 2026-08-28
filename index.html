@@ -1,42 +1,20 @@
 <!doctype html>
 <html lang="ko">
-  <head>
-    <meta charset="UTF-8" />
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hangul Organism</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="controls">
+    <div class="control-group">
+      <div id="point-control"></div>
+    </div>
+    <div id="text-control" class="text-control"></div>
+  </div>
 
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
-    <title>Hangul Organism</title>
-
-    <link rel="stylesheet" href="style.css" />
-  </head>
-
-  <body>
-
-    <!-- p5.js -->
-    <script src="https://cdn.jsdelivr.net/npm/p5@1.11.11/lib/p5.min.js"></script>
-
-    <!-- 우리 코드 -->
-    <script src="sketch.js"></script>
-
-  </body>
-
-      <!-- 캔버스 아래 조작 UI -->
-      <div id="controls">
-        <!-- Point Count 슬라이더 -->
-        <div class="control-group">
-
-          <div id="point-control"></div>
-        </div>
-
-        <!-- 한글 입력창 + 생성 버튼 -->
-        <div id="text-control" class="text-control"></div>
-      </div>
-    </main>
-
-    <!-- p5.js 라이브러리 -->
-    <script src="https://cdn.jsdelivr.net/npm/p5@1.11.11/lib/p5.min.js"></script>
-
-    <!-- 우리 프로젝트 코드 -->
-    <script src="sketch.js"></script>
-  </body>
+  <script src="https://cdn.jsdelivr.net/npm/p5@1.11.11/lib/p5.min.js"></script>
+  <script src="sketch.js"></script>
+</body>
 </html>
