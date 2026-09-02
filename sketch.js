@@ -1,3 +1,4 @@
+// MERGED VERSION: first file drag/movement physics + second file vowel point generation, release button, zoom.
 // =====================================================
 // 1. SETTINGS
 // 프로젝트 전체에서 공통으로 사용하는 조절값
@@ -13,7 +14,7 @@ const CONTROL_AREA_HEIGHT = 110;
 // 점 크기 / 마우스 선택 범위
 // -----------------------------------------
 
-const JOINT_SIZE = 5;
+const JOINT_SIZE = 20;
 const MIDDLE_POINT_SIZE = 3;
 const CONNECTOR_SIZE = 10;
 
@@ -52,21 +53,24 @@ const MAX_POINT_SPEED = 20;
 // 참고 이미지처럼 불규칙한 크기/위치/밀도의 점을 생성한다.
 // =====================================================
 const GENERATED_GRAPHIC_ENABLED = true;
-const GENERATED_POINT_DENSITY = 0.99;      // 높을수록 촘촘
-const GENERATED_POINT_MIN = 180;            // 자음당 최소 점 수
-const GENERATED_POINT_MAX = 650;            // 자음당 최대 점 수
-const GENERATED_POINT_SPREAD = 10;          // 뼈대 주변 기본 퍼짐
-const GENERATED_POINT_CLUSTER_SPREAD = 18;  // 드문 큰 군집의 퍼짐
-const GENERATED_POINT_CLUSTER_RATE = 0.16;  // 군집점 비율
-const GENERATED_POINT_MIN_SIZE = 1.1;
-const GENERATED_POINT_MAX_SIZE = 6.8;
-const GENERATED_POINT_MIN_ALPHA = 115;
-const GENERATED_POINT_MAX_ALPHA = 235;
-const GENERATED_BONE_STRENGTH = 0.10;
-const GENERATED_SHAPE_STRENGTH = 0.010;
-const GENERATED_DAMPING = 0.86;
-const GENERATED_MOUSE_RADIUS = 150;
-const GENERATED_MOUSE_STRENGTH = 0.34;
+const GENERATED_POINT_DENSITY = 0.55;      // 무거운 연산을 줄이기 위해 낮춤
+const GENERATED_POINT_MIN = 120;            // 자음당 최소 점 수
+const GENERATED_POINT_MAX = 360;            // 자음당 최대 점 수
+const GENERATED_POINT_SPREAD = 1.4;         // 뼈대 선분 위에 놓이는 작은 흔들림
+const GENERATED_POINT_CLUSTER_SPREAD = 30.2; // 드문 큰 군집의 퍼짐
+const GENERATED_POINT_CLUSTER_RATE = 0.12;  // 군집점 비율
+const GENERATED_POINT_MIN_SIZE = 4.5;
+const GENERATED_POINT_MAX_SIZE = 50.0;
+const GENERATED_POINT_MIN_ALPHA = 30;
+const GENERATED_POINT_MAX_ALPHA = 100;
+const GENERATED_BONE_STRENGTH = 0.32;
+const GENERATED_SHAPE_STRENGTH = 0.002;
+const GENERATED_DAMPING = 0.78;
+const GENERATED_JOINT_VELOCITY_FOLLOW = 0.72;
+const GENERATED_NEAR_JOINT_BONE_BONUS = 0.24;
+const GENERATED_NEAR_JOINT_VELOCITY_BONUS = 0.38;
+const GENERATED_MOUSE_RADIUS = 130;
+const GENERATED_MOUSE_STRENGTH = 0.28;
 
 // 생성 직후 점들이 하나씩 자라나는 효과
 const GRAPHIC_GROWTH_ENABLED = true;
@@ -1127,13 +1131,20 @@ function setup() {
 
   // 한글 입력창
   textInput =
-    createInput('가');
+    createInput('');
 
   textInput.size(130);
   textInput.input(() => {
     if (isEditingLocked) {
       pendingRegenerate = true;
     }
+  });
+  textInput.elt.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter' || event.isComposing) return;
+
+    event.preventDefault();
+    if (isEditingLocked && !pendingRegenerate) return;
+    generateJamosFromInput();
   });
 
 
@@ -1150,15 +1161,13 @@ function setup() {
   releaseButton.id('release-button');
   releaseButton.mousePressed(() => {
     releaseCurrentJamos();
+    textInput.value('');
   });
 
 
   // UI 위치 정리
   positionControls();
 
-
-  // 처음 한 번 자모 생성
-  generateJamosFromInput();
 
 }
 
@@ -1291,20 +1300,20 @@ const BONDED_GRAPHIC_SIZE_MULTIPLIER = 3.0;
 // -----------------------------------------------------
 // 관절이 붙으면 주변 점들이 단순히 관절을 따라오는 것이 아니라,
 // 서로 가까운 점끼리도 조금씩 당겨져 작은 덩어리처럼 뭉친다.
-const BONDED_GRAPHIC_PULL_STRENGTH = 3;
-const BONDED_GRAPHIC_PULL_MAX = 3.8;
+const BONDED_GRAPHIC_PULL_STRENGTH = 5.2;
+const BONDED_GRAPHIC_PULL_MAX = 3.2;
 
 // 관절 주변 점들의 서로 끌어당기는 범위
-const BONDED_GRAPHIC_COHESION_RADIUS = 42;
+const BONDED_GRAPHIC_COHESION_RADIUS = 30;
 
 // 가까운 점끼리 너무 겹쳐서 한 점처럼 되는 것을 막는 최소 간격
-const BONDED_GRAPHIC_MIN_DISTANCE = 5;
+const BONDED_GRAPHIC_MIN_DISTANCE = 4;
 
 // 주변 점끼리 뭉치는 힘
-const BONDED_GRAPHIC_COHESION_STRENGTH = 0.018;
+const BONDED_GRAPHIC_COHESION_STRENGTH = 0.012;
 
 // 한 점당 검사할 이웃 수. 점이 많아도 성능을 크게 해치지 않도록 제한한다.
-const BONDED_GRAPHIC_NEIGHBOR_LIMIT = 6;
+const BONDED_GRAPHIC_NEIGHBOR_LIMIT = 4;
 
 // =====================================================
 // 그래픽 색상 설정
@@ -1322,47 +1331,47 @@ const BONDED_GRAPHIC_NEIGHBOR_LIMIT = 6;
 //     보라: { r: 160, g: 90,  b: 220 }
 // =====================================================
 const GRAPHIC_COLORS = {
-  ㄱ: { base: {r:0,g:0,b:0}, bonded: {r:205,g:82,b:128} },
-  ㄲ: { base: {r:0,g:0,b:0}, bonded: {r:205,g:82,b:128} },
-  ㄴ: { base: {r:0,g:0,b:0}, bonded: {r:150,g:90,b:220} },
-  ㄷ: { base: {r:0,g:0,b:0}, bonded: {r:220,g:110,b:80} },
-  ㄸ: { base: {r:0,g:0,b:0}, bonded: {r:220,g:110,b:80} },
-  ㄹ: { base: {r:0,g:0,b:0}, bonded: {r:215,g:150,b:70} },
-  ㅁ: { base: {r:0,g:0,b:0}, bonded: {r:80,g:175,b:130} },
-  ㅂ: { base: {r:0,g:0,b:0}, bonded: {r:65,g:175,b:190} },
-  ㅃ: { base: {r:0,g:0,b:0}, bonded: {r:65,g:175,b:190} },
-  ㅅ: { base: {r:0,g:0,b:0}, bonded: {r:82,g:130,b:220} },
-  ㅆ: { base: {r:0,g:0,b:0}, bonded: {r:82,g:130,b:220} },
+  ㄱ: { base: {r:0,g:0,b:0}, bonded: {r:100,g:155,b:225} },
+  ㄲ: { base: {r:0,g:0,b:0}, bonded: {r:100,g:155,b:225} },
+  ㄴ: { base: {r:0,g:0,b:0}, bonded: {r:100,g:155,b:225} },
+  ㄷ: { base: {r:0,g:0,b:0}, bonded: {r:100,g:155,b:225} },
+  ㄸ: { base: {r:0,g:0,b:0}, bonded: {r:100,g:155,b:225} },
+  ㄹ: { base: {r:0,g:0,b:0}, bonded: {r:100,g:155,b:225} },
+  ㅁ: { base: {r:0,g:0,b:0}, bonded: {r:100,g:155,b:225} },
+  ㅂ: { base: {r:0,g:0,b:0}, bonded: {r:100,g:155,b:225} },
+  ㅃ: { base: {r:0,g:0,b:0}, bonded: {r:100,g:155,b:225} },
+  ㅅ: { base: {r:0,g:0,b:0}, bonded: {r:100,g:155,b:225} },
+  ㅆ: { base: {r:0,g:0,b:0}, bonded: {r:100,g:155,b:225} },
   ㅇ: { base: {r:0,g:0,b:0}, bonded: {r:100,g:155,b:225} },
-  ㅈ: { base: {r:0,g:0,b:0}, bonded: {r:90,g:115,b:225} },
-  ㅉ: { base: {r:0,g:0,b:0}, bonded: {r:90,g:115,b:225} },
-  ㅊ: { base: {r:0,g:0,b:0}, bonded: {r:115,g:100,b:220} },
-  ㅋ: { base: {r:0,g:0,b:0}, bonded: {r:185,g:90,b:190} },
-  ㅌ: { base: {r:0,g:0,b:0}, bonded: {r:200,g:80,b:160} },
-  ㅍ: { base: {r:0,g:0,b:0}, bonded: {r:180,g:100,b:205} },
-  ㅎ: { base: {r:0,g:0,b:0}, bonded: {r:130,g:90,b:210} },
+  ㅈ: { base: {r:0,g:0,b:0}, bonded: {r:100,g:155,b:225} },
+  ㅉ: { base: {r:0,g:0,b:0}, bonded: {r:100,g:155,b:225} },
+  ㅊ: { base: {r:0,g:0,b:0}, bonded: {r:100,g:155,b:225} },
+  ㅋ: { base: {r:0,g:0,b:0}, bonded: {r:100,g:155,b:225} },
+  ㅌ: { base: {r:0,g:0,b:0}, bonded: {r:100,g:155,b:225} },
+  ㅍ: { base: {r:0,g:0,b:0}, bonded: {r:100,g:155,b:225} },
+  ㅎ: { base: {r:0,g:0,b:0}, bonded: {r:100,g:155,b:225} },
 
-  ㅏ: { base: {r:0,g:0,b:0}, bonded: {r:255,g:120,b:130} },
-  ㅐ: { base: {r:0,g:0,b:0}, bonded: {r:245,g:138,b:115} },
-  ㅑ: { base: {r:0,g:0,b:0}, bonded: {r:255,g:155,b:140} },
-  ㅒ: { base: {r:0,g:0,b:0}, bonded: {r:245,g:173,b:135} },
-  ㅓ: { base: {r:0,g:0,b:0}, bonded: {r:110,g:180,b:255} },
-  ㅔ: { base: {r:0,g:0,b:0}, bonded: {r:118,g:195,b:255} },
-  ㅕ: { base: {r:0,g:0,b:0}, bonded: {r:120,g:165,b:255} },
-  ㅖ: { base: {r:0,g:0,b:0}, bonded: {r:130,g:175,b:255} },
-  ㅗ: { base: {r:0,g:0,b:0}, bonded: {r:120,g:210,b:190} },
-  ㅘ: { base: {r:0,g:0,b:0}, bonded: {r:110,g:200,b:195} },
-  ㅙ: { base: {r:0,g:0,b:0}, bonded: {r:130,g:200,b:160} },
-  ㅚ: { base: {r:0,g:0,b:0}, bonded: {r:165,g:205,b:160} },
-  ㅛ: { base: {r:0,g:0,b:0}, bonded: {r:200,g:135,b:255} },
-  ㅜ: { base: {r:0,g:0,b:0}, bonded: {r:142,g:210,b:120} },
-  ㅝ: { base: {r:0,g:0,b:0}, bonded: {r:145,g:200,b:110} },
-  ㅞ: { base: {r:0,g:0,b:0}, bonded: {r:160,g:195,b:105} },
-  ㅟ: { base: {r:0,g:0,b:0}, bonded: {r:180,g:190,b:120} },
-  ㅠ: { base: {r:0,g:0,b:0}, bonded: {r:145,g:150,b:245} },
-  ㅡ: { base: {r:0,g:0,b:0}, bonded: {r:120,g:120,b:235} },
-  ㅢ: { base: {r:0,g:0,b:0}, bonded: {r:155,g:130,b:230} },
-  ㅣ: { base: {r:0,g:0,b:0}, bonded: {r:95,g:175,b:220} },
+  ㅏ: { base: {r:0,g:0,b:0}, bonded: {r:100,g:155,b:225} },
+  ㅐ: { base: {r:0,g:0,b:0}, bonded: {r:100,g:155,b:225} },
+  ㅑ: { base: {r:0,g:0,b:0}, bonded: {r:100,g:155,b:225} },
+  ㅒ: { base: {r:0,g:0,b:0}, bonded: {r:100,g:155,b:225} },
+  ㅓ: { base: {r:0,g:0,b:0}, bonded: {r:100,g:155,b:225} },
+  ㅔ: { base: {r:0,g:0,b:0}, bonded: {r:100,g:155,b:225} },
+  ㅕ: { base: {r:0,g:0,b:0}, bonded: {r:100,g:155,b:225} },
+  ㅖ: { base: {r:0,g:0,b:0}, bonded: {r:100,g:155,b:225} },
+  ㅗ: { base: {r:0,g:0,b:0}, bonded: {r:100,g:155,b:225} },
+  ㅘ: { base: {r:0,g:0,b:0}, bonded: {r:100,g:155,b:225} },
+  ㅙ: { base: {r:0,g:0,b:0}, bonded: {r:100,g:155,b:225} },
+  ㅚ: { base: {r:0,g:0,b:0}, bonded: {r:100,g:155,b:225} },
+  ㅛ: { base: {r:0,g:0,b:0}, bonded: {r:100,g:155,b:225} },
+  ㅜ: { base: {r:0,g:0,b:0}, bonded: {r:100,g:155,b:225} },
+  ㅝ: { base: {r:0,g:0,b:0}, bonded: {r:100,g:155,b:225} },
+  ㅞ: { base: {r:0,g:0,b:0}, bonded: {r:100,g:155,b:225} },
+  ㅟ: { base: {r:0,g:0,b:0}, bonded: {r:100,g:155,b:225} },
+  ㅠ: { base: {r:0,g:0,b:0}, bonded: {r:100,g:155,b:225} },
+  ㅡ: { base: {r:0,g:0,b:0}, bonded: {r:100,g:155,b:225} },
+  ㅢ: { base: {r:0,g:0,b:0}, bonded: {r:100,g:155,b:225} },
+  ㅣ: { base: {r:0,g:0,b:0}, bonded: {r:100,g:155,b:225} },
 };
 
 function getGraphicColor(graphicType, influence) {
@@ -1840,10 +1849,6 @@ function draw() {
 
   updatePointCursor();
 
-  fill(0);
-  noStroke();
-  text("Point Count: " + pointCountSlider.value(), 10, 390);
-
 }
 
 // =====================================================
@@ -1853,29 +1858,15 @@ function draw() {
 
 // 현재 물리점과 스프링 위치를 이용해 자모를 그림
 function drawJamo(instance) {
-  // 점과 점 사이의 스프링을 선으로 표시
-  stroke(180);
-  strokeWeight(1.2);
+  // 뼈대 선과 일반 물리점은 숨기고, 그래픽 점과 관절만 남긴다.
+  const jointVisibility = getJamoGrowthVisibility(instance);
 
-  for (const spring of instance.physicsSprings) {
-    const pointA = instance.physicsPoints[spring.a];
-    const pointB = instance.physicsPoints[spring.b];
-
-    line(pointA.x, pointA.y, pointB.x, pointB.y);
-  }
-
-  // 최소 관절은 검은 점, Point Count로 추가된 점은 흰 점
   for (const point of instance.physicsPoints) {
-    if (point.isJoint) {
-      fill(180);
-      noStroke();
-      circle(point.x, point.y, JOINT_SIZE);
-    } else {
-      fill(255);
-      stroke(0);
-      strokeWeight(1);
-      circle(point.x, point.y, MIDDLE_POINT_SIZE);
-    }
+    if (!point.isJoint) continue;
+
+    fill(180, 255 * jointVisibility);
+    noStroke();
+    circle(point.x, point.y, JOINT_SIZE * jointVisibility);
   }
 
   // connector 확인용 원
@@ -1885,8 +1876,16 @@ function drawJamo(instance) {
     noFill();
     stroke(0);
     strokeWeight(1);
-    circle(point.x, point.y, CONNECTOR_SIZE);
+    circle(point.x, point.y, CONNECTOR_SIZE * jointVisibility);
   }
+}
+
+function getJamoGrowthVisibility(instance) {
+  if (!GRAPHIC_GROWTH_ENABLED || !instance.createdAt) return 1;
+
+  return smoothstep01(
+    (millis() - instance.createdAt) / GRAPHIC_GROWTH_DURATION
+  );
 }
 
 // 연결된 점들이 원래 간격(restLength)을 유지하도록 스프링 힘을 계산
@@ -1894,47 +1893,8 @@ function updateJamoPhysics(instance, instanceIndex) {
   const points = instance.physicsPoints;
   const springs = instance.physicsSprings;
 
-  const dragState =
-    draggedPoint !== null &&
-    draggedPoint.instanceIndex === instanceIndex
-      ? points[draggedPoint.pointIndex]
-      : null;
-
-  if (dragState) {
-    const worldMouse = screenToWorld(mouseX, mouseY);
-    const previousWorldMouse = screenToWorld(pmouseX, pmouseY);
-
-    const dragVx = (worldMouse.x - previousWorldMouse.x) * 1.2;
-    const dragVy = (worldMouse.y - previousWorldMouse.y) * 1.2;
-
-    dragState.x = worldMouse.x;
-    dragState.y = worldMouse.y;
-    dragState.vx = dragVx;
-    dragState.vy = dragVy;
-
-    for (let pointIndex = 0; pointIndex < points.length; pointIndex++) {
-      const point = points[pointIndex];
-      if (point === dragState) continue;
-
-      const dx = dragState.x - point.x;
-      const dy = dragState.y - point.y;
-      const distance = Math.hypot(dx, dy);
-      const dragRadius = 170;
-
-      if (distance > 0 && distance < dragRadius) {
-        const influence = 1 - distance / dragRadius;
-        const followStrength = influence * influence * 0.18;
-
-        point.vx += dx * followStrength;
-        point.vy += dy * followStrength;
-        point.vx += dragVx * influence * 0.28;
-        point.vy += dragVy * influence * 0.28;
-      }
-    }
-  }
-
-  const stiffness = draggedPoint === null ? SPRING_STIFFNESS * 0.18 : SPRING_STIFFNESS;
-
+  // 1) 각 스프링이 늘어나거나 줄어든 만큼
+  // 양쪽 점을 당기거나 밀어낸다.
   for (const spring of springs) {
     const pointA = points[spring.a];
     const pointB = points[spring.b];
@@ -1948,7 +1908,7 @@ function updateJamoPhysics(instance, instanceIndex) {
     }
 
     const stretch = currentLength - spring.restLength;
-    const force = stretch * stiffness;
+    const force = stretch * SPRING_STIFFNESS;
 
     const forceX = (deltaX / currentLength) * force;
     const forceY = (deltaY / currentLength) * force;
@@ -1960,23 +1920,31 @@ function updateJamoPhysics(instance, instanceIndex) {
     pointB.vy -= forceY;
   }
 
+  // 2) 속도를 줄이면서 실제 위치를 이동한다.
   for (let pointIndex = 0; pointIndex < points.length; pointIndex++) {
     const point = points[pointIndex];
 
+    // 마우스로 잡고 있는 점은 물리 계산 대신 마우스 위치에 고정한다.
     if (
       draggedPoint !== null &&
       draggedPoint.instanceIndex === instanceIndex &&
       draggedPoint.pointIndex === pointIndex
     ) {
+      const worldMouse = screenToWorld(mouseX, mouseY);
+      point.x = worldMouse.x;
+      point.y = worldMouse.y;
+      point.vx = 0;
+      point.vy = 0;
+
       continue;
     }
 
-    const damping = draggedPoint === null ? 0.92 : POINT_DAMPING;
-    point.vx *= damping;
-    point.vy *= damping;
+    point.vx *= POINT_DAMPING;
+    point.vy *= POINT_DAMPING;
 
     const speed = Math.hypot(point.vx, point.vy);
 
+    // 너무 빠르게 튀는 것을 방지
     if (speed > MAX_POINT_SPEED) {
       point.vx = (point.vx / speed) * MAX_POINT_SPEED;
       point.vy = (point.vy / speed) * MAX_POINT_SPEED;
@@ -2200,16 +2168,6 @@ function mouseDragged() {
 
 // 마우스를 놓으면 그 점도 다시 일반 물리점으로 돌아간다.
 function mouseReleased() {
-  if (draggedPoint !== null) {
-    const point =
-      jamoInstances[draggedPoint.instanceIndex].physicsPoints[
-        draggedPoint.pointIndex
-      ];
-
-    point.vx *= 0.7;
-    point.vy *= 0.7;
-  }
-
   draggedPoint = null;
 }
 
@@ -2285,12 +2243,6 @@ function drawReleasedGroups() {
   if (releasedGroups.length === 0) return;
 
   for (const group of releasedGroups) {
-    stroke(0);
-    strokeWeight(1.1);
-    for (const lineSeg of group.boneSegments) {
-      line(lineSeg.a.x, lineSeg.a.y, lineSeg.b.x, lineSeg.b.y);
-    }
-
     for (const point of group.jointPoints) {
       fill(180);
       noStroke();
@@ -2437,12 +2389,12 @@ function generateJamosFromInput() {
       physicsSprings: physics.physicsSprings,
       connectorPointIndices: physics.connectorPointIndices,
       isGraphicSkeleton: false,
+      createdAt: millis(),
     };
 
     jamoInstances.push(instance);
 
-    // 자음/모음 모두 같은 방식으로
-    // 기본 JAMO 뼈대 위에 불규칙한 점 구름을 올린다.
+    // 자음/모음 모두 뼈대 선분 자체를 점으로 대체한다.
     if (GENERATED_GRAPHIC_ENABLED && isGeneratedGraphicJamo(jamoType)) {
       generatedGraphicClouds.set(
         instance,
@@ -2567,20 +2519,28 @@ function createGeneratedGraphicPointCloud(instance) {
     GENERATED_POINT_MAX
   );
 
-  // edge 길이에 비례해 점을 배분하되, 매번 약간 랜덤하게 만든다.
   const edgeCounts = springs.map((spring) => {
     const a = instance.physicsPoints[spring.a];
     const b = instance.physicsPoints[spring.b];
     const len = Math.hypot(b.x - a.x, b.y - a.y);
-    return Math.max(4, Math.round(targetCount * (len / Math.max(totalLength, 1))));
+    return Math.max(2, Math.round(targetCount * (len / Math.max(totalLength, 1))));
   });
 
-  while (edgeCounts.reduce((a, b) => a + b, 0) > targetCount) {
-    const i = floor(random(edgeCounts.length));
-    if (edgeCounts[i] > 4) edgeCounts[i]--;
+  let currentTotal = edgeCounts.reduce((sum, count) => sum + count, 0);
+  let index = 0;
+
+  while (currentTotal > targetCount && index < 500) {
+    if (edgeCounts[index % edgeCounts.length] > 2) {
+      edgeCounts[index % edgeCounts.length]--;
+      currentTotal--;
+    }
+    index++;
   }
-  while (edgeCounts.reduce((a, b) => a + b, 0) < targetCount) {
-    edgeCounts[floor(random(edgeCounts.length))]++;
+
+  while (currentTotal < targetCount && index < 500) {
+    edgeCounts[index % edgeCounts.length]++;
+    currentTotal++;
+    index++;
   }
 
   for (let edgeIndex = 0; edgeIndex < springs.length; edgeIndex++) {
@@ -2596,25 +2556,21 @@ function createGeneratedGraphicPointCloud(instance) {
     const dirY = dy / len;
     const normalX = -dirY;
     const normalY = dirX;
+    const count = edgeCounts[edgeIndex] || 1;
 
-    for (let i = 0; i < edgeCounts[edgeIndex]; i++) {
-      // 균일한 줄이 아니라 덩어리가 생기도록 t도 약간 흔든다.
-      let t = (i + random(0.08, 0.92)) / edgeCounts[edgeIndex];
-      t = constrain(t + randomGaussian() * 0.018, 0, 1);
-
-      // 대부분은 뼈대 가까이, 일부는 넓게 퍼지는 군집점.
+    for (let i = 0; i < count; i++) {
+      const t = constrain((i + 0.5) / count, 0, 1);
       const clustered = random() < GENERATED_POINT_CLUSTER_RATE;
       const spread = clustered
         ? randomGaussian() * GENERATED_POINT_CLUSTER_SPREAD
         : randomGaussian() * GENERATED_POINT_SPREAD;
 
-      const alongJitter = randomGaussian() * Math.min(5, len * 0.025);
+      const alongJitter = randomGaussian() * Math.min(4, len * 0.02);
       const x = a.x + dirX * (t * len + alongJitter) + normalX * spread;
       const y = a.y + dirY * (t * len + alongJitter) + normalY * spread;
 
-      const sizeBias = clustered ? random(2.2, 1) : random(0.75, 1.15);
       const size = constrain(
-        randomGaussian() * 0.75 + random(1.4, 3.1) * sizeBias,
+        random(1.1, 2.8) * (clustered ? 1.3 : 1.0),
         GENERATED_POINT_MIN_SIZE,
         GENERATED_POINT_MAX_SIZE
       );
@@ -2633,9 +2589,11 @@ function createGeneratedGraphicPointCloud(instance) {
         edgeIndex,
         edgeT: t,
         normalOffset: spread,
+        previousTargetX: x,
+        previousTargetY: y,
         growthStart: random(0, GRAPHIC_GROWTH_RANDOM_DELAY),
-        growthJitterX: randomGaussian() * random(2, 8),
-        growthJitterY: randomGaussian() * random(2, 8),
+        growthJitterX: randomGaussian() * random(1.5, 5.5),
+        growthJitterY: randomGaussian() * random(1.5, 5.5),
         growthPhase: random(TWO_PI),
       });
     }
@@ -2707,26 +2665,32 @@ function updateGeneratedGraphicPoints() {
     const instanceIndex = jamoInstances.indexOf(instance);
     if (instanceIndex < 0) continue;
 
-    const isDraggingThisInstance =
-      draggedPoint !== null && draggedPoint.instanceIndex === instanceIndex;
-
     for (const point of points) {
-      if (isDraggingThisInstance) {
-        const target = getGeneratedPointTarget(point, instance);
-        const dragFollow = 0.9;
-        point.vx = (target.x - point.x) * dragFollow;
-        point.vy = (target.y - point.y) * dragFollow;
-        point.x += point.vx;
-        point.y += point.vy;
-        continue;
-      }
-
       const growing = updateGeneratedGrowth(point);
+      const target = getGeneratedPointTarget(point, instance);
+      const targetVX = target.x - point.previousTargetX;
+      const targetVY = target.y - point.previousTargetY;
+      point.previousTargetX = target.x;
+      point.previousTargetY = target.y;
 
       if (!growing) {
-        const target = getGeneratedPointTarget(point, instance);
-        point.vx += (target.x - point.x) * GENERATED_BONE_STRENGTH;
-        point.vy += (target.y - point.y) * GENERATED_BONE_STRENGTH;
+        const jointProximity = 1 - constrain(
+          Math.min(point.edgeT, 1 - point.edgeT) * 2,
+          0,
+          1
+        );
+        const boneStrength =
+          GENERATED_BONE_STRENGTH +
+          jointProximity * GENERATED_NEAR_JOINT_BONE_BONUS;
+        const velocityFollow =
+          GENERATED_JOINT_VELOCITY_FOLLOW +
+          jointProximity * GENERATED_NEAR_JOINT_VELOCITY_BONUS;
+
+        // 생성 점을 독립된 점군이 아니라 현재 선분에 붙은 점으로 움직인다.
+        point.vx += (target.x - point.x) * boneStrength;
+        point.vy += (target.y - point.y) * boneStrength;
+        point.vx += targetVX * velocityFollow;
+        point.vy += targetVY * velocityFollow;
 
         // 기본 뼈대에 붙어 있으려는 아주 약한 복원력.
         point.vx += (point.baseX - point.x) * GENERATED_SHAPE_STRENGTH;
@@ -2742,8 +2706,8 @@ function updateGeneratedGraphicPoints() {
           if (distance < GENERATED_MOUSE_RADIUS) {
             let influence = 1 - distance / GENERATED_MOUSE_RADIUS;
             influence *= influence;
-            const mouseVX = mouseX - pmouseX;
-            const mouseVY = mouseY - pmouseY;
+            const mouseVX = (mouseX - pmouseX) / zoom;
+            const mouseVY = (mouseY - pmouseY) / zoom;
             point.vx += mouseVX * GENERATED_MOUSE_STRENGTH * influence;
             point.vy += mouseVY * GENERATED_MOUSE_STRENGTH * influence;
           }
