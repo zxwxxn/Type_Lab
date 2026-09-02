@@ -52,11 +52,11 @@ const MAX_POINT_SPEED = 20;
 // 참고 이미지처럼 불규칙한 크기/위치/밀도의 점을 생성한다.
 // =====================================================
 const GENERATED_GRAPHIC_ENABLED = true;
-const GENERATED_POINT_DENSITY = 0.82;      // 높을수록 촘촘
+const GENERATED_POINT_DENSITY = 0.99;      // 높을수록 촘촘
 const GENERATED_POINT_MIN = 180;            // 자음당 최소 점 수
 const GENERATED_POINT_MAX = 650;            // 자음당 최대 점 수
 const GENERATED_POINT_SPREAD = 10;          // 뼈대 주변 기본 퍼짐
-const GENERATED_POINT_CLUSTER_SPREAD = 24;  // 드문 큰 군집의 퍼짐
+const GENERATED_POINT_CLUSTER_SPREAD = 18;  // 드문 큰 군집의 퍼짐
 const GENERATED_POINT_CLUSTER_RATE = 0.16;  // 군집점 비율
 const GENERATED_POINT_MIN_SIZE = 1.1;
 const GENERATED_POINT_MAX_SIZE = 6.8;
@@ -82,6 +82,10 @@ let generatedGraphicClouds = new Map();
 
 function isConsonantJamo(type) {
   return CHOSEONG.includes(type);
+}
+
+function isGeneratedGraphicJamo(type) {
+  return !!JAMO[type];
 }
 
 // -----------------------------------------
@@ -1066,9 +1070,20 @@ let jamoInstances = [];
 // 값이 없을 때는 null
 let draggedPoint = null;
 
+// 화면 확대/축소용 카메라 상태
+let zoom = 1;
+const MIN_ZOOM = 0.45;
+const MAX_ZOOM = 2.6;
+let cameraX = 0;
+let cameraY = 0;
+
 let pointCountSlider;
 let textInput;
 let generateButton;
+let releaseButton;
+let isEditingLocked = false;
+let pendingRegenerate = false;
+let releasedGroups = [];
 
 
 // =====================================================
@@ -1103,9 +1118,11 @@ function setup() {
 
   // Point Count가 바뀌면
   // 현재 글자를 새 물리구조로 다시 만든다.
-  pointCountSlider.changed(
-    generateJamosFromInput
-  );
+  pointCountSlider.changed(() => {
+    if (!isEditingLocked) {
+      generateJamosFromInput();
+    }
+  });
 
 
   // 한글 입력창
@@ -1113,15 +1130,27 @@ function setup() {
     createInput('가');
 
   textInput.size(130);
+  textInput.input(() => {
+    if (isEditingLocked) {
+      pendingRegenerate = true;
+    }
+  });
 
 
   // 생성 버튼
   generateButton =
     createButton('생성');
 
-  generateButton.mousePressed(
-    generateJamosFromInput
-  );
+  generateButton.mousePressed(() => {
+    if (isEditingLocked && !pendingRegenerate) return;
+    generateJamosFromInput();
+  });
+
+  releaseButton = createButton('풀어주기');
+  releaseButton.id('release-button');
+  releaseButton.mousePressed(() => {
+    releaseCurrentJamos();
+  });
 
 
   // UI 위치 정리
@@ -1160,6 +1189,66 @@ function positionControls() {
     centerX + 45,
     controlTop + 52
   );
+}
+
+function screenToWorld(screenX, screenY) {
+  return {
+    x: cameraX + (screenX - width / 2) / zoom,
+    y: cameraY + (screenY - height / 2) / zoom,
+  };
+}
+
+function worldToScreen(worldX, worldY) {
+  return {
+    x: width / 2 + (worldX - cameraX) * zoom,
+    y: height / 2 + (worldY - cameraY) * zoom,
+  };
+}
+
+function mouseWheel(event) {
+  const worldBefore = screenToWorld(mouseX, mouseY);
+
+  const nextZoom = constrain(
+    zoom * (event.deltaY < 0 ? 1.12 : 0.9),
+    MIN_ZOOM,
+    MAX_ZOOM
+  );
+
+  if (nextZoom === zoom) return false;
+
+  zoom = nextZoom;
+
+  cameraX = worldBefore.x - (mouseX - width / 2) / zoom;
+  cameraY = worldBefore.y - (mouseY - height / 2) / zoom;
+
+  return false;
+}
+
+function centerCameraOnCurrentJamos() {
+  if (jamoInstances.length === 0) {
+    cameraX = 0;
+    cameraY = 0;
+    zoom = 1;
+    return;
+  }
+
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minY = Infinity;
+  let maxY = -Infinity;
+
+  for (const instance of jamoInstances) {
+    for (const point of instance.physicsPoints) {
+      minX = Math.min(minX, point.x);
+      maxX = Math.max(maxX, point.x);
+      minY = Math.min(minY, point.y);
+      maxY = Math.max(maxY, point.y);
+    }
+  }
+
+  cameraX = (minX + maxX) / 2;
+  cameraY = (minY + maxY) / 2;
+  zoom = 1;
 }
 
 
@@ -1252,6 +1341,28 @@ const GRAPHIC_COLORS = {
   ㅌ: { base: {r:0,g:0,b:0}, bonded: {r:200,g:80,b:160} },
   ㅍ: { base: {r:0,g:0,b:0}, bonded: {r:180,g:100,b:205} },
   ㅎ: { base: {r:0,g:0,b:0}, bonded: {r:130,g:90,b:210} },
+
+  ㅏ: { base: {r:0,g:0,b:0}, bonded: {r:255,g:120,b:130} },
+  ㅐ: { base: {r:0,g:0,b:0}, bonded: {r:245,g:138,b:115} },
+  ㅑ: { base: {r:0,g:0,b:0}, bonded: {r:255,g:155,b:140} },
+  ㅒ: { base: {r:0,g:0,b:0}, bonded: {r:245,g:173,b:135} },
+  ㅓ: { base: {r:0,g:0,b:0}, bonded: {r:110,g:180,b:255} },
+  ㅔ: { base: {r:0,g:0,b:0}, bonded: {r:118,g:195,b:255} },
+  ㅕ: { base: {r:0,g:0,b:0}, bonded: {r:120,g:165,b:255} },
+  ㅖ: { base: {r:0,g:0,b:0}, bonded: {r:130,g:175,b:255} },
+  ㅗ: { base: {r:0,g:0,b:0}, bonded: {r:120,g:210,b:190} },
+  ㅘ: { base: {r:0,g:0,b:0}, bonded: {r:110,g:200,b:195} },
+  ㅙ: { base: {r:0,g:0,b:0}, bonded: {r:130,g:200,b:160} },
+  ㅚ: { base: {r:0,g:0,b:0}, bonded: {r:165,g:205,b:160} },
+  ㅛ: { base: {r:0,g:0,b:0}, bonded: {r:200,g:135,b:255} },
+  ㅜ: { base: {r:0,g:0,b:0}, bonded: {r:142,g:210,b:120} },
+  ㅝ: { base: {r:0,g:0,b:0}, bonded: {r:145,g:200,b:110} },
+  ㅞ: { base: {r:0,g:0,b:0}, bonded: {r:160,g:195,b:105} },
+  ㅟ: { base: {r:0,g:0,b:0}, bonded: {r:180,g:190,b:120} },
+  ㅠ: { base: {r:0,g:0,b:0}, bonded: {r:145,g:150,b:245} },
+  ㅡ: { base: {r:0,g:0,b:0}, bonded: {r:120,g:120,b:235} },
+  ㅢ: { base: {r:0,g:0,b:0}, bonded: {r:155,g:130,b:230} },
+  ㅣ: { base: {r:0,g:0,b:0}, bonded: {r:95,g:175,b:220} },
 };
 
 function getGraphicColor(graphicType, influence) {
@@ -1713,11 +1824,19 @@ function draw() {
 
   updateGeneratedGraphicPoints();
 
+  push();
+  translate(width / 2, height / 2);
+  scale(zoom);
+  translate(-cameraX, -cameraY);
+
   for (let i = 0; i < jamoInstances.length; i++) {
     drawJamo(jamoInstances[i]);
   }
 
   drawGeneratedGraphicPoints();
+  updateReleasedGroups();
+  drawReleasedGroups();
+  pop();
 
   updatePointCursor();
 
@@ -1775,8 +1894,47 @@ function updateJamoPhysics(instance, instanceIndex) {
   const points = instance.physicsPoints;
   const springs = instance.physicsSprings;
 
-  // 1) 각 스프링이 늘어나거나 줄어든 만큼
-  // 양쪽 점을 당기거나 밀어낸다.
+  const dragState =
+    draggedPoint !== null &&
+    draggedPoint.instanceIndex === instanceIndex
+      ? points[draggedPoint.pointIndex]
+      : null;
+
+  if (dragState) {
+    const worldMouse = screenToWorld(mouseX, mouseY);
+    const previousWorldMouse = screenToWorld(pmouseX, pmouseY);
+
+    const dragVx = (worldMouse.x - previousWorldMouse.x) * 1.2;
+    const dragVy = (worldMouse.y - previousWorldMouse.y) * 1.2;
+
+    dragState.x = worldMouse.x;
+    dragState.y = worldMouse.y;
+    dragState.vx = dragVx;
+    dragState.vy = dragVy;
+
+    for (let pointIndex = 0; pointIndex < points.length; pointIndex++) {
+      const point = points[pointIndex];
+      if (point === dragState) continue;
+
+      const dx = dragState.x - point.x;
+      const dy = dragState.y - point.y;
+      const distance = Math.hypot(dx, dy);
+      const dragRadius = 170;
+
+      if (distance > 0 && distance < dragRadius) {
+        const influence = 1 - distance / dragRadius;
+        const followStrength = influence * influence * 0.18;
+
+        point.vx += dx * followStrength;
+        point.vy += dy * followStrength;
+        point.vx += dragVx * influence * 0.28;
+        point.vy += dragVy * influence * 0.28;
+      }
+    }
+  }
+
+  const stiffness = draggedPoint === null ? SPRING_STIFFNESS * 0.18 : SPRING_STIFFNESS;
+
   for (const spring of springs) {
     const pointA = points[spring.a];
     const pointB = points[spring.b];
@@ -1790,7 +1948,7 @@ function updateJamoPhysics(instance, instanceIndex) {
     }
 
     const stretch = currentLength - spring.restLength;
-    const force = stretch * SPRING_STIFFNESS;
+    const force = stretch * stiffness;
 
     const forceX = (deltaX / currentLength) * force;
     const forceY = (deltaY / currentLength) * force;
@@ -1802,30 +1960,23 @@ function updateJamoPhysics(instance, instanceIndex) {
     pointB.vy -= forceY;
   }
 
-  // 2) 속도를 줄이면서 실제 위치를 이동한다.
   for (let pointIndex = 0; pointIndex < points.length; pointIndex++) {
     const point = points[pointIndex];
 
-    // 마우스로 잡고 있는 점은 물리 계산 대신 마우스 위치에 고정한다.
     if (
       draggedPoint !== null &&
       draggedPoint.instanceIndex === instanceIndex &&
       draggedPoint.pointIndex === pointIndex
     ) {
-      point.x = mouseX;
-      point.y = mouseY;
-      point.vx = 0;
-      point.vy = 0;
-
       continue;
     }
 
-    point.vx *= POINT_DAMPING;
-    point.vy *= POINT_DAMPING;
+    const damping = draggedPoint === null ? 0.92 : POINT_DAMPING;
+    point.vx *= damping;
+    point.vy *= damping;
 
     const speed = Math.hypot(point.vx, point.vy);
 
-    // 너무 빠르게 튀는 것을 방지
     if (speed > MAX_POINT_SPEED) {
       point.vx = (point.vx / speed) * MAX_POINT_SPEED;
       point.vy = (point.vy / speed) * MAX_POINT_SPEED;
@@ -1941,20 +2092,26 @@ function addPhysicsSpring(points, springs, pointIndexA, pointIndexB) {
 // 모든 물리점을 확인해서
 // 마우스가 점 위에 있으면 손 모양 커서로 바꾼다.
 function updatePointCursor() {
+  if (isEditingLocked) {
+    cursor(ARROW);
+    return;
+  }
 
   let isOverPoint = false;
+  const worldMouse = screenToWorld(mouseX, mouseY);
+  const pickDistance = POINT_PICK_RADIUS / zoom;
 
   for (const instance of jamoInstances) {
 
     for (const point of instance.physicsPoints) {
 
       const distance = Math.hypot(
-        mouseX - point.x,
-        mouseY - point.y
+        worldMouse.x - point.x,
+        worldMouse.y - point.y
       );
 
       // 실제 관절만 잡을 수 있다.
-      if (point.isJoint && distance <= POINT_PICK_RADIUS) {
+      if (point.isJoint && distance <= pickDistance) {
         isOverPoint = true;
         break;
       }
@@ -1975,8 +2132,13 @@ function updatePointCursor() {
 // 마우스와 가장 가까운 물리점 하나를 선택
 
 function mousePressed() {
+  if (isEditingLocked) return;
+
+  const worldMouse = screenToWorld(mouseX, mouseY);
+  const pickDistance = POINT_PICK_RADIUS / zoom;
+
   let closestPoint = null;
-  let closestDistance = POINT_PICK_RADIUS;
+  let closestDistance = pickDistance;
 
   // 뒤에 그려진 자모부터 검사한다.
   for (
@@ -1990,7 +2152,7 @@ function mousePressed() {
       const point = points[pointIndex];
       if (!point.isJoint) continue;
 
-      const distance = Math.hypot(mouseX - point.x, mouseY - point.y);
+      const distance = Math.hypot(worldMouse.x - point.x, worldMouse.y - point.y);
 
       if (distance < closestDistance) {
         closestDistance = distance;
@@ -2019,7 +2181,7 @@ function mousePressed() {
 // 잡은 점만 마우스 위치로 옮긴다.
 // 나머지 점들은 직접 움직이지 않고 스프링 힘으로 따라온다.
 function mouseDragged() {
-  if (draggedPoint === null) {
+  if (isEditingLocked || draggedPoint === null) {
     return;
   }
 
@@ -2028,8 +2190,9 @@ function mouseDragged() {
       draggedPoint.pointIndex
     ];
 
-  point.x = mouseX;
-  point.y = mouseY;
+  const worldMouse = screenToWorld(mouseX, mouseY);
+  point.x = worldMouse.x;
+  point.y = worldMouse.y;
 
   point.vx = 0;
   point.vy = 0;
@@ -2037,7 +2200,182 @@ function mouseDragged() {
 
 // 마우스를 놓으면 그 점도 다시 일반 물리점으로 돌아간다.
 function mouseReleased() {
+  if (draggedPoint !== null) {
+    const point =
+      jamoInstances[draggedPoint.instanceIndex].physicsPoints[
+        draggedPoint.pointIndex
+      ];
+
+    point.vx *= 0.7;
+    point.vy *= 0.7;
+  }
+
   draggedPoint = null;
+}
+
+function getReleasedGroupBounds(group) {
+  if (!group || group.points.length === 0) {
+    return { minX: 0, minY: 0, maxX: 0, maxY: 0 };
+  }
+
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+
+  for (const point of group.points) {
+    minX = Math.min(minX, point.x);
+    minY = Math.min(minY, point.y);
+    maxX = Math.max(maxX, point.x);
+    maxY = Math.max(maxY, point.y);
+  }
+
+  return { minX, minY, maxX, maxY };
+}
+
+function updateReleasedGroups() {
+  if (releasedGroups.length === 0) return;
+
+  for (const group of releasedGroups) {
+    const driftX = Math.sin(frameCount * 0.012 + group.seed) * 0.22 + group.side * 0.12;
+    const driftY = Math.cos(frameCount * 0.017 + group.seed * 1.7) * 0.18 + Math.sin(frameCount * 0.026 + group.seed * 2.4) * 0.1;
+
+    group.vx += driftX * 0.18;
+    group.vy += driftY * 0.18;
+    group.vx *= 0.985;
+    group.vy *= 0.985;
+
+    const maxDrift = 1.7;
+    const speed = Math.hypot(group.vx, group.vy);
+    if (speed > maxDrift) {
+      const scale = maxDrift / speed;
+      group.vx *= scale;
+      group.vy *= scale;
+    }
+
+    for (const point of group.points) {
+      point.x += group.vx;
+      point.y += group.vy;
+    }
+
+    for (const point of group.graphicPoints) {
+      point.x += group.vx;
+      point.y += group.vy;
+    }
+
+    const bounds = getReleasedGroupBounds(group);
+    const pad = 36;
+
+    if (bounds.minX < pad && group.vx < 0) {
+      group.vx *= -0.45;
+    }
+    if (bounds.maxX > width - pad && group.vx > 0) {
+      group.vx *= -0.45;
+    }
+    if (bounds.minY < pad && group.vy < 0) {
+      group.vy *= -0.6;
+    }
+    if (bounds.maxY > height - pad && group.vy > 0) {
+      group.vy *= -0.6;
+    }
+  }
+}
+
+function drawReleasedGroups() {
+  if (releasedGroups.length === 0) return;
+
+  for (const group of releasedGroups) {
+    stroke(0);
+    strokeWeight(1.1);
+    for (const lineSeg of group.boneSegments) {
+      line(lineSeg.a.x, lineSeg.a.y, lineSeg.b.x, lineSeg.b.y);
+    }
+
+    for (const point of group.jointPoints) {
+      fill(180);
+      noStroke();
+      circle(point.x, point.y, JOINT_SIZE);
+    }
+
+    noStroke();
+    for (const point of group.graphicPoints) {
+      const size = point.size * (0.9 + Math.sin(frameCount * 0.08 + point.seed) * 0.12);
+      fill(point.r, point.g, point.b, point.alpha);
+      circle(point.x, point.y, size);
+    }
+  }
+}
+
+function releaseCurrentJamos() {
+  if (isEditingLocked || jamoInstances.length === 0) return;
+
+  const releasedPoints = [];
+  const boneSegments = [];
+  const jointPoints = [];
+  const graphicPoints = [];
+
+  for (let instanceIndex = 0; instanceIndex < jamoInstances.length; instanceIndex++) {
+    const instance = jamoInstances[instanceIndex];
+    const localPoints = instance.physicsPoints.map((point) => ({
+      x: point.x,
+      y: point.y,
+      isJoint: point.isJoint,
+    }));
+
+    releasedPoints.push(...localPoints);
+
+    for (const point of localPoints) {
+      if (point.isJoint) {
+        jointPoints.push(point);
+      }
+    }
+
+    for (const spring of instance.physicsSprings) {
+      const a = localPoints[spring.a];
+      const b = localPoints[spring.b];
+      boneSegments.push({ a, b });
+    }
+
+    const graphicCloud = generatedGraphicClouds.get(instance);
+    if (graphicCloud) {
+      for (const point of graphicCloud) {
+        const style = getGraphicPointStyle(point, instanceIndex, instance.type);
+        graphicPoints.push({
+          x: point.x,
+          y: point.y,
+          size: style.size,
+          alpha: point.alpha,
+          r: style.r,
+          g: style.g,
+          b: style.b,
+          seed: random(TWO_PI),
+        });
+      }
+    }
+  }
+
+  if (releasedPoints.length === 0) return;
+
+  const side = random() < 0.5 ? -1 : 1;
+  const group = {
+    points: releasedPoints,
+    boneSegments,
+    jointPoints,
+    graphicPoints,
+    vx: side * random(0.8, 1.8),
+    vy: random(-0.5, 0.5),
+    side,
+    seed: random(TWO_PI),
+  };
+
+  releasedGroups.push(group);
+
+  jamoInstances = [];
+  magneticBonds = [];
+  draggedPoint = null;
+  generatedGraphicClouds = new Map();
+  isEditingLocked = true;
+  pendingRegenerate = false;
 }
 
 // =====================================================
@@ -2046,7 +2384,11 @@ function mouseReleased() {
 // =====================================================
 
 function generateJamosFromInput() {
+  if (isEditingLocked && !pendingRegenerate) return;
+
   const inputText = textInput.value().trim();
+  if (inputText === "") return;
+
   const pointCount = pointCountSlider.value();
 
   jamoInstances = [];
@@ -2099,15 +2441,19 @@ function generateJamosFromInput() {
 
     jamoInstances.push(instance);
 
-    // 모든 자음은 기본 JAMO 뼈대를 그대로 사용하고,
-    // 그 위에 불규칙한 점 구름만 올린다.
-    if (GENERATED_GRAPHIC_ENABLED && isConsonantJamo(jamoType)) {
+    // 자음/모음 모두 같은 방식으로
+    // 기본 JAMO 뼈대 위에 불규칙한 점 구름을 올린다.
+    if (GENERATED_GRAPHIC_ENABLED && isGeneratedGraphicJamo(jamoType)) {
       generatedGraphicClouds.set(
         instance,
         createGeneratedGraphicPointCloud(instance)
       );
     }
   }
+
+  centerCameraOnCurrentJamos();
+  isEditingLocked = false;
+  pendingRegenerate = false;
 }
 
 // =====================================================
@@ -2361,7 +2707,20 @@ function updateGeneratedGraphicPoints() {
     const instanceIndex = jamoInstances.indexOf(instance);
     if (instanceIndex < 0) continue;
 
+    const isDraggingThisInstance =
+      draggedPoint !== null && draggedPoint.instanceIndex === instanceIndex;
+
     for (const point of points) {
+      if (isDraggingThisInstance) {
+        const target = getGeneratedPointTarget(point, instance);
+        const dragFollow = 0.9;
+        point.vx = (target.x - point.x) * dragFollow;
+        point.vy = (target.y - point.y) * dragFollow;
+        point.x += point.vx;
+        point.y += point.vy;
+        continue;
+      }
+
       const growing = updateGeneratedGrowth(point);
 
       if (!growing) {

@@ -3,9 +3,39 @@ html,
 body {
   margin: 0;
   padding: 0;
+  font-family: sans-serif;
 }
 
 /* 캔버스 아래에 불필요한 틈이 생기지 않게 한다. */
 canvas {
   display: block;
+}
+
+#release-button {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  width: 108px;
+  height: 108px;
+  border: none;
+  border-radius: 50%;
+  background: #111;
+  color: #fff;
+  font-size: 16px;
+  line-height: 1.2;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  z-index: 1000;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
+}
+
+#release-button:hover {
+  transform: scale(1.03);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22);
+}
+
+#release-button:active {
+  transform: scale(0.98);
 }
