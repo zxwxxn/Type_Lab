@@ -6,8 +6,9 @@
 // 브라우저 가장자리와 캔버스 사이 여백
 const PAGE_MARGIN = 24;
 
-// 캔버스 아래 입력 UI가 들어갈 공간
+// 캔버스 아래 입력 UI 공간
 const CONTROL_AREA_HEIGHT = 110;
+
 
 // -----------------------------------------
 // 점 크기 / 마우스 선택 범위
@@ -20,49 +21,55 @@ const CONNECTOR_SIZE = 28;
 // 마우스로 점을 잡을 수 있는 범위
 const POINT_PICK_RADIUS = 20;
 
-// =====================================================
-// POINT PHYSICS
-// 점들이 연결되어 움직이는 느낌을 조절
-// =====================================================
 
-// 연결된 점들이 원래 간격을 유지하려는 힘
-// 높이면: 더 빳빳하고 빨리 따라옴
-// 낮추면: 더 늘어지고 말랑함
-// 기존값: 0.08
+// -----------------------------------------
+// 점 물리
+// -----------------------------------------
+
+// 연결된 점이 원래 간격으로 돌아가려는 힘
+// 높을수록 빳빳하고, 낮을수록 말랑함
 const SPRING_STIFFNESS = 0.05;
 
-
-// 움직임이 얼마나 오래 남는지 조절
-// 1에 가까울수록: 흔들림이 오래 감
-// 낮을수록: 빨리 멈춤
-// 기존값: 0.86
+// 움직임이 얼마나 오래 남는지
+// 1에 가까울수록 흔들림이 오래 지속됨
 const POINT_DAMPING = 0.86;
 
-
 // 점이 너무 빠르게 튀는 것을 제한
-// 높이면: 더 빠르고 거칠게 움직임
-// 낮추면: 더 안정적으로 움직임
-// 기존값: 25
 const MAX_POINT_SPEED = 20;
 
-// =====================================================
-// CONNECTOR MAGNET
-// 같은 음절의 connector가 가까워지면 서로 끌어당김
-// =====================================================
 
-// 자석 힘이 시작되는 거리
+// -----------------------------------------
+// Connector 자석
+// -----------------------------------------
+
+// 이 거리 안에서 같은 음절의 connector가 서로 끌림
 const MAGNET_RADIUS = 100;
 
 // 자석 힘의 세기
-// 높이면: 더 강하게 끌림
-// 낮추면: 더 부드럽게 끌림
 const MAGNET_FORCE = 0.2;
 
+
 // -----------------------------------------
-// 반응형 캔버스 크기 계산
+// Connector 스냅
 // -----------------------------------------
 
-// 현재 브라우저 크기를 기준으로 캔버스 너비 계산
+// 이 거리 안으로 들어오면 connector를 같은 위치에 맞춤
+const SNAP_DISTANCE = 25;
+
+
+// -----------------------------------------
+// 디버그 표시
+// -----------------------------------------
+
+// 물리 뼈대를 화면에 보여줄지 여부
+const SHOW_SKELETON = true;
+
+
+// -----------------------------------------
+// 반응형 캔버스 크기
+// -----------------------------------------
+
+// 브라우저 크기를 기준으로 캔버스 너비 계산
 function getCanvasWidth() {
   return Math.max(300, windowWidth - PAGE_MARGIN * 2);
 }
@@ -72,28 +79,17 @@ function getCanvasHeight() {
   return Math.max(300, windowHeight - PAGE_MARGIN * 2 - CONTROL_AREA_HEIGHT);
 }
 
-// =====================================================
-// CONNECTOR SNAP
-// connector가 아주 가까워지면 같은 위치로 딱 맞춤
-// =====================================================
-
-// 이 거리 안으로 들어오면 스냅
-const SNAP_DISTANCE = 25;
-
-// =====================================================
-// DEBUG DISPLAY
-// 물리 뼈대를 화면에 보여줄지 여부
-// =====================================================
-
-const SHOW_SKELETON = true;
-
 
 // =====================================================
 // 2. JAMO DATA
-// 각 자모의 최소 관절(nodes), 선(edges), 결합점(connectors)
+// 각 자모의 관절(nodes), 선(edges), 결합점(connectors)
 // =====================================================
 
 const JAMO = {
+
+  // -----------------------------------------
+  // 기본 자음
+  // -----------------------------------------
 
   // ㄱ
   'ㄱ': {
@@ -109,7 +105,6 @@ const JAMO = {
     connectors: [0, 2]
   },
 
-
   // ㄴ
   'ㄴ': {
     nodes: [
@@ -124,25 +119,21 @@ const JAMO = {
     connectors: [0, 2]
   },
 
-
   // ㄷ
-'ㄷ': {
-  nodes: [
-    { x: 120, y: 120 }, // 0 왼쪽 위
-    { x: 280, y: 120 }, // 1 오른쪽 위
-    { x: 120, y: 280 }, // 2 왼쪽 아래
-    { x: 280, y: 280 }  // 3 오른쪽 아래
-  ],
-
-  edges: [
-    [0, 1], // 위
-    [0, 2], // 왼쪽
-    [2, 3]  // 아래
-  ],
-
-  connectors: [1, 3]
+  'ㄷ': {
+    nodes: [
+      { x: 120, y: 120 }, // 0 왼쪽 위
+      { x: 280, y: 120 }, // 1 오른쪽 위
+      { x: 120, y: 280 }, // 2 왼쪽 아래
+      { x: 280, y: 280 }  // 3 오른쪽 아래
+    ],
+    edges: [
+      [0, 1], // 위
+      [0, 2], // 왼쪽
+      [2, 3]  // 아래
+    ],
+    connectors: [1, 3]
   },
-
 
   // ㄹ
   'ㄹ': {
@@ -164,7 +155,6 @@ const JAMO = {
     connectors: [0, 5]
   },
 
-
   // ㅁ
   'ㅁ': {
     nodes: [
@@ -182,19 +172,16 @@ const JAMO = {
     connectors: [0, 1, 2, 3]
   },
 
-
   // ㅂ
   'ㅂ': {
     nodes: [
       { x: 130, y: 100 }, // 0 왼쪽 위
       { x: 130, y: 200 }, // 1 왼쪽 가운데
       { x: 130, y: 300 }, // 2 왼쪽 아래
-
       { x: 270, y: 100 }, // 3 오른쪽 위
       { x: 270, y: 200 }, // 4 오른쪽 가운데
       { x: 270, y: 300 }  // 5 오른쪽 아래
     ],
-
     edges: [
       // 왼쪽 세로
       [0, 1],
@@ -204,14 +191,12 @@ const JAMO = {
       [3, 4],
       [4, 5],
 
-      // 두 가로획
+      // 가로획
       [1, 4],
       [2, 5]
     ],
-
     connectors: [0, 2, 3, 5]
   },
-
 
   // ㅅ
   'ㅅ': {
@@ -227,9 +212,8 @@ const JAMO = {
     connectors: [1, 2]
   },
 
-
   // ㅇ
-  // 현재 선 기반 시스템이라 원을 8개의 관절로 표현
+  // 원형을 8개의 관절로 표현
   'ㅇ': {
     nodes: [
       { x: 200, y: 100 },
@@ -254,14 +238,12 @@ const JAMO = {
     connectors: [0, 2, 4, 6]
   },
 
-
   // ㅈ
   'ㅈ': {
     nodes: [
       { x: 120, y: 100 }, // 0 왼쪽 위
       { x: 200, y: 100 }, // 1 가운데 위
       { x: 280, y: 100 }, // 2 오른쪽 위
-
       { x: 120, y: 280 }, // 3 왼쪽 아래
       { x: 280, y: 280 }  // 4 오른쪽 아래
     ],
@@ -280,39 +262,32 @@ const JAMO = {
       { x: 120, y: 140 }, // 0 왼쪽
       { x: 200, y: 140 }, // 1 중심
       { x: 280, y: 140 }, // 2 오른쪽
-
       { x: 200, y: 70 },  // 3 위쪽 끝
-
       { x: 120, y: 300 }, // 4 왼쪽 아래
       { x: 280, y: 300 }  // 5 오른쪽 아래
     ],
-
     edges: [
-      // ㅈ의 위 가로획
+      // 위 가로획
       [0, 1],
       [1, 2],
 
-      // 중심에서 위로 올라오는 추가 획
+      // 위쪽 추가 획
       [1, 3],
 
-      // 아래 갈라지는 두 획
+      // 아래 두 획
       [1, 4],
       [1, 5]
     ],
-
     connectors: [0, 2, 3, 4, 5]
   },
-
 
   // ㅋ
   'ㅋ': {
     nodes: [
       { x: 120, y: 100 },
       { x: 280, y: 100 },
-
       { x: 280, y: 200 },
       { x: 150, y: 200 },
-
       { x: 280, y: 300 }
     ],
     edges: [
@@ -324,20 +299,16 @@ const JAMO = {
     connectors: [0, 3, 4]
   },
 
-
   // ㅌ
   'ㅌ': {
     nodes: [
       { x: 120, y: 100 }, // 0 왼쪽 위
       { x: 280, y: 100 }, // 1 오른쪽 위
-
       { x: 120, y: 200 }, // 2 왼쪽 가운데
       { x: 280, y: 200 }, // 3 오른쪽 가운데
-
       { x: 120, y: 300 }, // 4 왼쪽 아래
       { x: 280, y: 300 }  // 5 오른쪽 아래
     ],
-
     edges: [
       // 위 가로
       [0, 1],
@@ -352,10 +323,8 @@ const JAMO = {
       // 아래 가로
       [4, 5]
     ],
-
     connectors: [1, 3, 5]
   },
-
 
   // ㅍ
   'ㅍ': {
@@ -372,7 +341,6 @@ const JAMO = {
       { x: 250, y: 270 }, // 6 오른쪽 교차점
       { x: 300, y: 270 }  // 7 오른쪽 끝
     ],
-
     edges: [
       // 위 가로획
       [0, 1],
@@ -384,43 +352,39 @@ const JAMO = {
       [5, 6],
       [6, 7],
 
-      // 두 세로획
+      // 세로획
       [1, 5],
       [2, 6]
     ],
-
-  connectors: [0, 3, 4, 7]
-},
+    connectors: [0, 3, 4, 7]
+  },
 
   // ㅎ
   'ㅎ': {
     nodes: [
-      // ㅊ과 같은 윗부분
+      // 윗부분
       { x: 140, y: 110 }, // 0 왼쪽
       { x: 200, y: 110 }, // 1 중심
       { x: 260, y: 110 }, // 2 오른쪽
       { x: 200, y: 50 },  // 3 위쪽 꼭지
 
-
-      // 기존 ㅇ의 8관절 구조를 그대로 아래로 이동
-      { x: 200, y: 170 }, // 4  위
-      { x: 270, y: 200 }, // 5  오른쪽 위
-      { x: 300, y: 270 }, // 6  오른쪽
-      { x: 270, y: 340 }, // 7  오른쪽 아래
-      { x: 200, y: 370 }, // 8  아래
-      { x: 130, y: 340 }, // 9  왼쪽 아래
+      // 아래 ㅇ
+      { x: 200, y: 170 }, // 4 위
+      { x: 270, y: 200 }, // 5 오른쪽 위
+      { x: 300, y: 270 }, // 6 오른쪽
+      { x: 270, y: 340 }, // 7 오른쪽 아래
+      { x: 200, y: 370 }, // 8 아래
+      { x: 130, y: 340 }, // 9 왼쪽 아래
       { x: 100, y: 270 }, // 10 왼쪽
       { x: 130, y: 200 }  // 11 왼쪽 위
     ],
-
     edges: [
-      // ㅊ과 같은 윗부분
+      // 윗부분
       [0, 1],
       [1, 2],
       [1, 3],
 
-
-      // ㅇ
+      // 아래 ㅇ
       [4, 5],
       [5, 6],
       [6, 7],
@@ -430,33 +394,9 @@ const JAMO = {
       [10, 11],
       [11, 4]
     ],
-
-    connectors: [
-      // 윗부분
-      0, 2, 3,
-
-      // ㅇ의 기존 connector 위치와 동일
-      4, 6, 8, 10
-    ]
+    connectors: [0, 2, 3, 4, 6, 8, 10]
   },
 
-
-  // ㅏ
-  'ㅏ': {
-    nodes: [
-      { x: 180, y: 100 },
-      { x: 180, y: 200 },
-      { x: 280, y: 200 },
-      { x: 180, y: 300 }
-    ],
-    edges: [
-      [0, 1],
-      [1, 2],
-      [1, 3]
-    ],
-    connectors: [0, 2, 3]
-  },
-  
   // -----------------------------------------
   // 된소리
   // -----------------------------------------
@@ -474,7 +414,6 @@ const JAMO = {
       { x: 290, y: 120 }, // 4
       { x: 290, y: 280 }  // 5
     ],
-
     edges: [
       // 왼쪽 ㄱ
       [0, 1],
@@ -484,7 +423,6 @@ const JAMO = {
       [3, 4],
       [4, 5]
     ],
-
     connectors: [0, 2, 3, 5]
   },
 
@@ -492,9 +430,9 @@ const JAMO = {
   'ㄸ': {
     nodes: [
       // 왼쪽 ㄷ
-      { x: 80,  y: 120 }, // 0 왼쪽 위
+      { x: 80, y: 120 },  // 0 왼쪽 위
       { x: 180, y: 120 }, // 1 오른쪽 위
-      { x: 80,  y: 280 }, // 2 왼쪽 아래
+      { x: 80, y: 280 },  // 2 왼쪽 아래
       { x: 180, y: 280 }, // 3 오른쪽 아래
 
       // 오른쪽 ㄷ
@@ -503,7 +441,6 @@ const JAMO = {
       { x: 220, y: 280 }, // 6 왼쪽 아래
       { x: 320, y: 280 }  // 7 오른쪽 아래
     ],
-
     edges: [
       // 왼쪽 ㄷ
       [0, 1],
@@ -515,7 +452,6 @@ const JAMO = {
       [4, 6],
       [6, 7]
     ],
-
     connectors: [1, 3, 5, 7]
   },
 
@@ -523,25 +459,21 @@ const JAMO = {
   'ㅃ': {
     nodes: [
       // 왼쪽 ㅂ
-      { x: 80,  y: 100 }, // 0 왼쪽 위
-      { x: 80,  y: 200 }, // 1 왼쪽 가운데
-      { x: 80,  y: 300 }, // 2 왼쪽 아래
-
+      { x: 80, y: 100 },  // 0 왼쪽 위
+      { x: 80, y: 200 },  // 1 왼쪽 가운데
+      { x: 80, y: 300 },  // 2 왼쪽 아래
       { x: 170, y: 100 }, // 3 오른쪽 위
       { x: 170, y: 200 }, // 4 오른쪽 가운데
       { x: 170, y: 300 }, // 5 오른쪽 아래
-
 
       // 오른쪽 ㅂ
       { x: 230, y: 100 }, // 6 왼쪽 위
       { x: 230, y: 200 }, // 7 왼쪽 가운데
       { x: 230, y: 300 }, // 8 왼쪽 아래
-
       { x: 320, y: 100 }, // 9 오른쪽 위
       { x: 320, y: 200 }, // 10 오른쪽 가운데
       { x: 320, y: 300 }  // 11 오른쪽 아래
     ],
-
     edges: [
       // 왼쪽 ㅂ
       [0, 1],
@@ -559,7 +491,6 @@ const JAMO = {
       [7, 10],
       [8, 11]
     ],
-
     connectors: [
       0, 2, 3, 5,
       6, 8, 9, 11
@@ -571,7 +502,7 @@ const JAMO = {
     nodes: [
       // 왼쪽 ㅅ
       { x: 120, y: 100 }, // 0 위
-      { x: 70,  y: 280 }, // 1 왼쪽 아래
+      { x: 70, y: 280 },  // 1 왼쪽 아래
       { x: 170, y: 280 }, // 2 오른쪽 아래
 
       // 오른쪽 ㅅ
@@ -579,7 +510,6 @@ const JAMO = {
       { x: 230, y: 280 }, // 4 왼쪽 아래
       { x: 330, y: 280 }  // 5 오른쪽 아래
     ],
-
     edges: [
       // 왼쪽 ㅅ
       [0, 1],
@@ -589,7 +519,6 @@ const JAMO = {
       [3, 4],
       [3, 5]
     ],
-
     connectors: [1, 2, 4, 5]
   },
 
@@ -597,10 +526,10 @@ const JAMO = {
   'ㅉ': {
     nodes: [
       // 왼쪽 ㅈ
-      { x: 70,  y: 100 }, // 0 왼쪽 위
+      { x: 70, y: 100 },  // 0 왼쪽 위
       { x: 120, y: 100 }, // 1 중심
       { x: 170, y: 100 }, // 2 오른쪽 위
-      { x: 70,  y: 280 }, // 3 왼쪽 아래
+      { x: 70, y: 280 },  // 3 왼쪽 아래
       { x: 170, y: 280 }, // 4 오른쪽 아래
 
       // 오른쪽 ㅈ
@@ -610,7 +539,6 @@ const JAMO = {
       { x: 230, y: 280 }, // 8 왼쪽 아래
       { x: 330, y: 280 }  // 9 오른쪽 아래
     ],
-
     edges: [
       // 왼쪽 ㅈ
       [0, 1],
@@ -624,17 +552,15 @@ const JAMO = {
       [6, 8],
       [6, 9]
     ],
-
     connectors: [
       0, 2, 3, 4,
       5, 7, 8, 9
     ]
   },
 
-
-  // =====================================================
+    // -----------------------------------------
   // 기본 모음
-  // =====================================================
+  // -----------------------------------------
 
   // ㅏ
   'ㅏ': {
@@ -644,16 +570,13 @@ const JAMO = {
       { x: 280, y: 200 }, // 2 오른쪽
       { x: 180, y: 300 }  // 3 아래
     ],
-
     edges: [
       [0, 1],
       [1, 2],
       [1, 3]
     ],
-
     connectors: [0, 2, 3]
   },
-
 
   // ㅑ
   'ㅑ': {
@@ -665,7 +588,6 @@ const JAMO = {
       { x: 280, y: 240 }, // 4 오른쪽 아래
       { x: 180, y: 300 }  // 5 아래
     ],
-
     edges: [
       [0, 1],
       [1, 3],
@@ -673,10 +595,8 @@ const JAMO = {
       [1, 2],
       [3, 4]
     ],
-
     connectors: [0, 2, 4, 5]
   },
-
 
   // ㅓ
   'ㅓ': {
@@ -686,16 +606,13 @@ const JAMO = {
       { x: 120, y: 200 }, // 2 왼쪽
       { x: 220, y: 300 }  // 3 아래
     ],
-
     edges: [
       [0, 1],
       [1, 2],
       [1, 3]
     ],
-
     connectors: [0, 2, 3]
   },
-
 
   // ㅕ
   'ㅕ': {
@@ -707,7 +624,6 @@ const JAMO = {
       { x: 120, y: 240 }, // 4 왼쪽 아래
       { x: 220, y: 300 }  // 5 아래
     ],
-
     edges: [
       [0, 1],
       [1, 3],
@@ -715,10 +631,8 @@ const JAMO = {
       [1, 2],
       [3, 4]
     ],
-
     connectors: [0, 2, 4, 5]
   },
-
 
   // ㅗ
   'ㅗ': {
@@ -728,16 +642,13 @@ const JAMO = {
       { x: 200, y: 120 }, // 2 위
       { x: 300, y: 240 }  // 3 오른쪽
     ],
-
     edges: [
       [0, 1],
       [1, 2],
       [1, 3]
     ],
-
     connectors: [0, 2, 3]
   },
-
 
   // ㅛ
   'ㅛ': {
@@ -749,7 +660,6 @@ const JAMO = {
       { x: 240, y: 120 }, // 4 오른쪽 위
       { x: 300, y: 240 }  // 5 오른쪽
     ],
-
     edges: [
       [0, 1],
       [1, 3],
@@ -757,10 +667,8 @@ const JAMO = {
       [1, 2],
       [3, 4]
     ],
-
     connectors: [0, 2, 4, 5]
   },
-
 
   // ㅜ
   'ㅜ': {
@@ -770,16 +678,13 @@ const JAMO = {
       { x: 200, y: 280 }, // 2 아래
       { x: 300, y: 160 }  // 3 오른쪽
     ],
-
     edges: [
       [0, 1],
       [1, 2],
       [1, 3]
     ],
-
     connectors: [0, 2, 3]
   },
-
 
   // ㅠ
   'ㅠ': {
@@ -791,7 +696,6 @@ const JAMO = {
       { x: 240, y: 280 }, // 4 오른쪽 아래
       { x: 300, y: 160 }  // 5 오른쪽
     ],
-
     edges: [
       [0, 1],
       [1, 3],
@@ -799,10 +703,8 @@ const JAMO = {
       [1, 2],
       [3, 4]
     ],
-
     connectors: [0, 2, 4, 5]
   },
-
 
   // ㅡ
   'ㅡ': {
@@ -810,14 +712,11 @@ const JAMO = {
       { x: 100, y: 200 }, // 0 왼쪽
       { x: 300, y: 200 }  // 1 오른쪽
     ],
-
     edges: [
       [0, 1]
     ],
-
     connectors: [0, 1]
   },
-
 
   // ㅣ
   'ㅣ': {
@@ -825,16 +724,14 @@ const JAMO = {
       { x: 200, y: 100 }, // 0 위
       { x: 200, y: 300 }  // 1 아래
     ],
-
     edges: [
       [0, 1]
     ],
-
     connectors: [0, 1]
   },
 
   // -----------------------------------------
-  // 확장 / 복합 모음
+  // 복합 모음
   // -----------------------------------------
 
   // ㅐ = ㅏ + ㅣ
@@ -850,7 +747,6 @@ const JAMO = {
       { x: 260, y: 200 }, // 4 오른쪽 중심
       { x: 260, y: 300 }  // 5 오른쪽 아래
     ],
-
     edges: [
       // 왼쪽 세로
       [0, 1],
@@ -863,10 +759,8 @@ const JAMO = {
       // 가운데 가로획
       [1, 4]
     ],
-
     connectors: [0, 2, 3, 5]
   },
-
 
   // ㅒ
   'ㅒ': {
@@ -883,7 +777,6 @@ const JAMO = {
       { x: 260, y: 240 }, // 6 오른쪽 아래 갈림점
       { x: 260, y: 300 }  // 7 오른쪽 아래
     ],
-
     edges: [
       // 왼쪽 세로
       [0, 1],
@@ -899,7 +792,6 @@ const JAMO = {
       [1, 5],
       [2, 6]
     ],
-
     connectors: [0, 3, 4, 7]
   },
 
@@ -912,11 +804,10 @@ const JAMO = {
       { x: 100, y: 200 }, // 2 왼쪽 끝
       { x: 180, y: 300 }, // 3 아래
 
-      // 오른쪽 ㅣ
+      // ㅣ
       { x: 260, y: 100 }, // 4 위
       { x: 260, y: 300 }  // 5 아래
     ],
-
     edges: [
       // ㅓ
       [0, 1],
@@ -926,10 +817,8 @@ const JAMO = {
       // ㅣ
       [4, 5]
     ],
-
     connectors: [0, 2, 3, 4, 5]
   },
-
 
   // ㅖ
   'ㅖ': {
@@ -942,11 +831,10 @@ const JAMO = {
       { x: 100, y: 240 }, // 4 왼쪽 아래 끝
       { x: 180, y: 300 }, // 5 아래
 
-      // 오른쪽 ㅣ
+      // ㅣ
       { x: 260, y: 100 }, // 6 위
       { x: 260, y: 300 }  // 7 아래
     ],
-
     edges: [
       // ㅕ
       [0, 1],
@@ -958,7 +846,6 @@ const JAMO = {
       // ㅣ
       [6, 7]
     ],
-
     connectors: [0, 2, 4, 5, 6, 7]
   },
 
@@ -966,7 +853,7 @@ const JAMO = {
   'ㅘ': {
     nodes: [
       // ㅗ
-      { x: 60,  y: 250 }, // 0 왼쪽
+      { x: 60, y: 250 },  // 0 왼쪽
       { x: 130, y: 250 }, // 1 중심
       { x: 130, y: 130 }, // 2 위
       { x: 200, y: 250 }, // 3 오른쪽
@@ -977,7 +864,6 @@ const JAMO = {
       { x: 330, y: 200 }, // 6 오른쪽
       { x: 260, y: 300 }  // 7 아래
     ],
-
     edges: [
       // ㅗ
       [0, 1],
@@ -989,16 +875,14 @@ const JAMO = {
       [5, 6],
       [5, 7]
     ],
-
     connectors: [0, 2, 3, 4, 6, 7]
   },
-
 
   // ㅙ = ㅗ + ㅐ
   'ㅙ': {
     nodes: [
       // ㅗ
-      { x: 40,  y: 250 }, // 0 왼쪽
+      { x: 40, y: 250 },  // 0 왼쪽
       { x: 100, y: 250 }, // 1 중심
       { x: 100, y: 130 }, // 2 위
       { x: 160, y: 250 }, // 3 오른쪽
@@ -1007,12 +891,10 @@ const JAMO = {
       { x: 220, y: 100 }, // 4 왼쪽 위
       { x: 220, y: 200 }, // 5 왼쪽 중심
       { x: 220, y: 300 }, // 6 왼쪽 아래
-
       { x: 300, y: 100 }, // 7 오른쪽 위
       { x: 300, y: 200 }, // 8 오른쪽 중심
       { x: 300, y: 300 }  // 9 오른쪽 아래
     ],
-
     edges: [
       // ㅗ
       [0, 1],
@@ -1026,16 +908,14 @@ const JAMO = {
       [8, 9],
       [5, 8]
     ],
-
     connectors: [0, 2, 3, 4, 6, 7, 9]
   },
-
 
   // ㅚ = ㅗ + ㅣ
   'ㅚ': {
     nodes: [
       // ㅗ
-      { x: 70,  y: 250 }, // 0 왼쪽
+      { x: 70, y: 250 },  // 0 왼쪽
       { x: 140, y: 250 }, // 1 중심
       { x: 140, y: 130 }, // 2 위
       { x: 210, y: 250 }, // 3 오른쪽
@@ -1044,7 +924,6 @@ const JAMO = {
       { x: 280, y: 100 }, // 4 위
       { x: 280, y: 300 }  // 5 아래
     ],
-
     edges: [
       // ㅗ
       [0, 1],
@@ -1054,15 +933,14 @@ const JAMO = {
       // ㅣ
       [4, 5]
     ],
-
     connectors: [0, 2, 3, 4, 5]
   },
 
-    // ㅝ = ㅜ + ㅓ
+  // ㅝ = ㅜ + ㅓ
   'ㅝ': {
     nodes: [
       // ㅜ
-      { x: 60,  y: 140 }, // 0 왼쪽
+      { x: 60, y: 140 },  // 0 왼쪽
       { x: 130, y: 140 }, // 1 중심
       { x: 130, y: 260 }, // 2 아래
       { x: 200, y: 140 }, // 3 오른쪽
@@ -1073,7 +951,6 @@ const JAMO = {
       { x: 220, y: 200 }, // 6 왼쪽
       { x: 280, y: 300 }  // 7 아래
     ],
-
     edges: [
       // ㅜ
       [0, 1],
@@ -1085,16 +962,14 @@ const JAMO = {
       [5, 6],
       [5, 7]
     ],
-
     connectors: [0, 2, 3, 4, 6, 7]
   },
-
 
   // ㅞ = ㅜ + ㅔ
   'ㅞ': {
     nodes: [
       // ㅜ
-      { x: 40,  y: 140 }, // 0 왼쪽
+      { x: 40, y: 140 },  // 0 왼쪽
       { x: 100, y: 140 }, // 1 중심
       { x: 100, y: 260 }, // 2 아래
       { x: 160, y: 140 }, // 3 오른쪽
@@ -1109,7 +984,6 @@ const JAMO = {
       { x: 300, y: 100 }, // 8 위
       { x: 300, y: 300 }  // 9 아래
     ],
-
     edges: [
       // ㅜ
       [0, 1],
@@ -1124,16 +998,14 @@ const JAMO = {
       // ㅣ
       [8, 9]
     ],
-
     connectors: [0, 2, 3, 4, 6, 7, 8, 9]
   },
-
 
   // ㅟ = ㅜ + ㅣ
   'ㅟ': {
     nodes: [
       // ㅜ
-      { x: 60,  y: 140 }, // 0 왼쪽
+      { x: 60, y: 140 },  // 0 왼쪽
       { x: 130, y: 140 }, // 1 중심
       { x: 130, y: 260 }, // 2 아래
       { x: 200, y: 140 }, // 3 오른쪽
@@ -1142,7 +1014,6 @@ const JAMO = {
       { x: 280, y: 100 }, // 4 위
       { x: 280, y: 300 }  // 5 아래
     ],
-
     edges: [
       // ㅜ
       [0, 1],
@@ -1152,16 +1023,31 @@ const JAMO = {
       // ㅣ
       [4, 5]
     ],
-
     connectors: [0, 2, 3, 4, 5]
   },
 
+    // ㅢ = ㅡ + ㅣ
+  'ㅢ': {
+    nodes: [
+      // ㅡ
+      { x: 60, y: 200 },  // 0 왼쪽
+      { x: 200, y: 200 }, // 1 오른쪽
 
+      // ㅣ
+      { x: 280, y: 100 }, // 2 위
+      { x: 280, y: 300 }  // 3 아래
+    ],
+    edges: [
+      // ㅡ
+      [0, 1],
+
+      // ㅣ
+      [2, 3]
+    ],
+    connectors: [0, 1, 2, 3]
+  }
 
 };
-
-
-
 
 
 // =====================================================
@@ -1169,94 +1055,43 @@ const JAMO = {
 // 완성형 한글을 초성 / 중성 / 종성으로 분해하기 위한 표
 // =====================================================
 
+// 초성
 const CHOSEONG = [
-  "ㄱ",
-  "ㄲ",
-  "ㄴ",
-  "ㄷ",
-  "ㄸ",
-  "ㄹ",
-  "ㅁ",
-  "ㅂ",
-  "ㅃ",
-  "ㅅ",
-  "ㅆ",
-  "ㅇ",
-  "ㅈ",
-  "ㅉ",
-  "ㅊ",
-  "ㅋ",
-  "ㅌ",
-  "ㅍ",
-  "ㅎ",
+  "ㄱ", "ㄲ", "ㄴ", "ㄷ", "ㄸ", "ㄹ", "ㅁ", "ㅂ", "ㅃ",
+  "ㅅ", "ㅆ", "ㅇ", "ㅈ", "ㅉ", "ㅊ", "ㅋ", "ㅌ", "ㅍ", "ㅎ"
 ];
 
+// 중성
 const JUNGSEONG = [
-  "ㅏ",
-  "ㅐ",
-  "ㅑ",
-  "ㅒ",
-  "ㅓ",
-  "ㅔ",
-  "ㅕ",
-  "ㅖ",
-  "ㅗ",
-  "ㅘ",
-  "ㅙ",
-  "ㅚ",
-  "ㅛ",
-  "ㅜ",
-  "ㅝ",
-  "ㅞ",
-  "ㅟ",
-  "ㅠ",
-  "ㅡ",
-  "ㅢ",
-  "ㅣ",
+  "ㅏ", "ㅐ", "ㅑ", "ㅒ", "ㅓ", "ㅔ", "ㅕ", "ㅖ", "ㅗ", "ㅘ",
+  "ㅙ", "ㅚ", "ㅛ", "ㅜ", "ㅝ", "ㅞ", "ㅟ", "ㅠ", "ㅡ", "ㅢ", "ㅣ"
 ];
 
+// 종성
 const JONGSEONG = [
-  "",
-  "ㄱ",
-  "ㄲ",
-  "ㄳ",
-  "ㄴ",
-  "ㄵ",
-  "ㄶ",
-  "ㄷ",
-  "ㄹ",
-  "ㄺ",
-  "ㄻ",
-  "ㄼ",
-  "ㄽ",
-  "ㄾ",
-  "ㄿ",
-  "ㅀ",
-  "ㅁ",
-  "ㅂ",
-  "ㅄ",
-  "ㅅ",
-  "ㅆ",
-  "ㅇ",
-  "ㅈ",
-  "ㅊ",
-  "ㅋ",
-  "ㅌ",
-  "ㅍ",
-  "ㅎ",
+  "", "ㄱ", "ㄲ", "ㄳ", "ㄴ", "ㄵ", "ㄶ", "ㄷ", "ㄹ", "ㄺ",
+  "ㄻ", "ㄼ", "ㄽ", "ㄾ", "ㄿ", "ㅀ", "ㅁ", "ㅂ", "ㅄ", "ㅅ",
+  "ㅆ", "ㅇ", "ㅈ", "ㅊ", "ㅋ", "ㅌ", "ㅍ", "ㅎ"
 ];
+
+
 
 // =====================================================
 // 4. STATE
 // 실행 중 계속 바뀌는 값
 // =====================================================
 
+// 캔버스
+let canvas;
+
+// 생성된 자모 개체
 let jamoInstances = [];
 
-// 지금 마우스로 잡고 있는 물리점
-// 값이 없을 때는 null
+// 현재 마우스로 잡고 있는 물리점
+// 잡고 있지 않으면 null
 let draggedPoint = null;
 
+// 조작 UI
 let pointCountSlider;
 let textInput;
 let generateButton;
@@ -1268,98 +1103,51 @@ let generateButton;
 // =====================================================
 
 function setup() {
-
-  // 브라우저 크기에 맞춰 캔버스를 만든다.
-  canvas =
-    createCanvas(
-      getCanvasWidth(),
-      getCanvasHeight()
-    );
-
-  // 화면 가장자리에서 일정한 여백을 둔다.
-  canvas.position(
-    PAGE_MARGIN,
-    PAGE_MARGIN
-  );
-
+  // 브라우저 크기에 맞춰 캔버스 생성
+  canvas = createCanvas(getCanvasWidth(), getCanvasHeight());
+  canvas.position(PAGE_MARGIN, PAGE_MARGIN);
 
   // 각 edge 사이에 추가할 물리점 개수
-  pointCountSlider =
-    createSlider(
-      0,
-      10,
-      2,
-      1
-    );
+  pointCountSlider = createSlider(0, 10, 2, 1);
 
-  // Point Count가 바뀌면
-  // 현재 글자를 새 물리구조로 다시 만든다.
-  pointCountSlider.changed(
-    generateJamosFromInput
-  );
-
+  // Point Count 변경 시 현재 글자를 새 물리구조로 다시 생성
+  pointCountSlider.changed(generateJamosFromInput);
 
   // 한글 입력창
-  textInput =
-    createInput('가');
-
+  textInput = createInput("가");
   textInput.size(130);
 
-  // 입력창에서 Enter를 누르면 생성 버튼과 같은 기능 실행
-  textInput.elt.addEventListener(
-    'keydown',
-    function(event) {
-      if (event.key === 'Enter') {
-        generateJamosFromInput();
-      }
+  // Enter 키도 생성 버튼과 같은 기능
+  textInput.elt.addEventListener("keydown", function(event) {
+    if (event.key === "Enter") {
+      generateJamosFromInput();
     }
-  );
-
+  });
 
   // 생성 버튼
-  generateButton =
-    createButton('생성');
+  generateButton = createButton("생성");
+  generateButton.mousePressed(generateJamosFromInput);
 
-  generateButton.mousePressed(
-    generateJamosFromInput
-  );
-
-
-  // UI 위치 정리
+  // UI 배치
   positionControls();
-
 
   // 처음 한 번 자모 생성
   generateJamosFromInput();
 }
 
-// 캔버스 아래 가운데에
-// 슬라이더 / 입력창 / 생성 버튼을 배치한다.
+
+// -----------------------------------------
+// UI 위치
+// -----------------------------------------
+
+// 슬라이더 / 입력창 / 생성 버튼을 캔버스 아래 가운데에 배치
 function positionControls() {
+  const centerX = PAGE_MARGIN + width / 2;
+  const controlTop = PAGE_MARGIN + height;
 
-  const centerX =
-    PAGE_MARGIN + width / 2;
-
-  const controlTop =
-    PAGE_MARGIN + height;
-
-
-  pointCountSlider.position(
-    centerX - 90,
-    controlTop + 18
-  );
-
-
-  textInput.position(
-    centerX - 105,
-    controlTop + 52
-  );
-
-
-  generateButton.position(
-    centerX + 45,
-    controlTop + 52
-  );
+  pointCountSlider.position(centerX - 90, controlTop + 18);
+  textInput.position(centerX - 105, controlTop + 52);
+  generateButton.position(centerX + 45, controlTop + 52);
 }
 
 // =====================================================
@@ -1370,42 +1158,44 @@ function positionControls() {
 function draw() {
   background(255);
 
-  // 마우스가 점 위에 있으면 손 커서로 바꿈
+  // 마우스 커서와 connector 반응 계산
   updatePointCursor();
-  // 같은 음절의 connector끼리 자석 힘 적용
   applyConnectorMagnetism();
 
-
-  // 모든 자모 물리 계산
+  // 모든 자모의 물리 계산
   for (let i = 0; i < jamoInstances.length; i++) {
     const instance = jamoInstances[i];
-
     updateJamoPhysics(instance, i);
   }
 
   // 물리 계산 후 connector 스냅
   applyConnectorSnap();
 
-  // 마지막으로 화면에 그림
-  for (let i = 0; i < jamoInstances.length; i++) {
-    const instance = jamoInstances[i];
-
+  // 모든 자모 그리기
+  for (const instance of jamoInstances) {
     drawJamo(instance);
   }
 
+  // 현재 Point Count 표시
   fill(0);
   noStroke();
   text("Point Count: " + pointCountSlider.value(), 10, 390);
 }
 
+
 // =====================================================
 // 7. JAMO DRAWING + PHYSICS
-// Point Count로 만든 모든 점을 실제 물리점으로 사용
+// 자모의 물리 구조를 만들고 움직임과 화면 표시를 처리
 // =====================================================
+
+
+// -----------------------------------------
+// 자모 그리기
+// -----------------------------------------
 
 // 현재 물리점과 스프링 위치를 이용해 자모를 그림
 function drawJamo(instance) {
-  // 점과 점 사이의 스프링을 선으로 표시
+  // 점 사이의 스프링
   stroke(0);
   strokeWeight(2);
 
@@ -1416,7 +1206,7 @@ function drawJamo(instance) {
     line(pointA.x, pointA.y, pointB.x, pointB.y);
   }
 
-  // 최소 관절은 검은 점, Point Count로 추가된 점은 흰 점
+  // 관절은 검은 점, 추가된 물리점은 흰 점
   for (const point of instance.physicsPoints) {
     if (point.isJoint) {
       fill(0);
@@ -1441,13 +1231,17 @@ function drawJamo(instance) {
   }
 }
 
-// 연결된 점들이 원래 간격(restLength)을 유지하도록 스프링 힘을 계산
+
+// -----------------------------------------
+// 물리 계산
+// -----------------------------------------
+
+// 연결된 점이 원래 간격을 유지하도록 스프링 힘을 계산
 function updateJamoPhysics(instance, instanceIndex) {
   const points = instance.physicsPoints;
   const springs = instance.physicsSprings;
 
-  // 1) 각 스프링이 늘어나거나 줄어든 만큼
-  // 양쪽 점을 당기거나 밀어낸다.
+  // 스프링이 늘어나거나 줄어든 만큼 양쪽 점에 힘 적용
   for (const spring of springs) {
     const pointA = points[spring.a];
     const pointB = points[spring.b];
@@ -1473,11 +1267,11 @@ function updateJamoPhysics(instance, instanceIndex) {
     pointB.vy -= forceY;
   }
 
-  // 2) 속도를 줄이면서 실제 위치를 이동한다.
+  // 속도를 줄이면서 실제 위치 이동
   for (let pointIndex = 0; pointIndex < points.length; pointIndex++) {
     const point = points[pointIndex];
 
-    // 마우스로 잡고 있는 점은 물리 계산 대신 마우스 위치에 고정한다.
+    // 잡고 있는 점은 마우스 위치에 고정
     if (
       draggedPoint !== null &&
       draggedPoint.instanceIndex === instanceIndex &&
@@ -1487,7 +1281,6 @@ function updateJamoPhysics(instance, instanceIndex) {
       point.y = mouseY;
       point.vx = 0;
       point.vy = 0;
-
       continue;
     }
 
@@ -1496,7 +1289,7 @@ function updateJamoPhysics(instance, instanceIndex) {
 
     const speed = Math.hypot(point.vx, point.vy);
 
-    // 너무 빠르게 튀는 것을 방지
+    // 너무 빠르게 튀는 것을 제한
     if (speed > MAX_POINT_SPEED) {
       point.vx = (point.vx / speed) * MAX_POINT_SPEED;
       point.vy = (point.vy / speed) * MAX_POINT_SPEED;
@@ -1508,18 +1301,18 @@ function updateJamoPhysics(instance, instanceIndex) {
 }
 
 
+// -----------------------------------------
+// 물리 구조 생성
+// -----------------------------------------
 
-
-// JAMO의 최소 nodes와 Point Count를
-// 실제 물리점 + 스프링 구조로 바꾼다.
+// JAMO의 nodes와 Point Count를 실제 물리점과 스프링으로 변환
 function createPhysicsStructure(jamoType, offsetX, offsetY, pointCount) {
   const jamo = JAMO[jamoType];
 
   const physicsPoints = [];
   const physicsSprings = [];
 
-  // 원래 최소 관절을 먼저 실제 물리점으로 만든다.
-  // connector가 어느 관절인지 추적하기 위해 인덱스를 기억한다.
+  // 기본 관절 생성
   const jointPointIndices = jamo.nodes.map((node, nodeIndex) => {
     const pointIndex = physicsPoints.length;
 
@@ -1535,7 +1328,7 @@ function createPhysicsStructure(jamoType, offsetX, offsetY, pointCount) {
     return pointIndex;
   });
 
-  // 각 원래 edge 사이에 Point Count만큼 실제 물리점을 추가한다.
+  // 각 edge 사이에 Point Count만큼 물리점 추가
   for (const edge of jamo.edges) {
     const startNodeIndex = edge[0];
     const endNodeIndex = edge[1];
@@ -1547,17 +1340,13 @@ function createPhysicsStructure(jamoType, offsetX, offsetY, pointCount) {
 
     for (let i = 1; i <= pointCount; i++) {
       const t = i / (pointCount + 1);
-
       const pointIndex = physicsPoints.length;
 
       physicsPoints.push({
         x: startNode.x + (endNode.x - startNode.x) * t + offsetX,
-
         y: startNode.y + (endNode.y - startNode.y) * t + offsetY,
-
         vx: 0,
         vy: 0,
-
         isJoint: false,
         sourceNodeIndex: null,
       });
@@ -1566,7 +1355,7 @@ function createPhysicsStructure(jamoType, offsetX, offsetY, pointCount) {
         physicsPoints,
         physicsSprings,
         previousPointIndex,
-        pointIndex,
+        pointIndex
       );
 
       previousPointIndex = pointIndex;
@@ -1577,13 +1366,13 @@ function createPhysicsStructure(jamoType, offsetX, offsetY, pointCount) {
       physicsPoints,
       physicsSprings,
       previousPointIndex,
-      jointPointIndices[endNodeIndex],
+      jointPointIndices[endNodeIndex]
     );
   }
 
-  // connector는 기존 최소 관절을 그대로 사용한다.
+  // connector는 기존 관절 위치를 사용
   const connectorPointIndices = jamo.connectors.map(
-    (nodeIndex) => jointPointIndices[nodeIndex],
+    (nodeIndex) => jointPointIndices[nodeIndex]
   );
 
   return {
@@ -1593,21 +1382,19 @@ function createPhysicsStructure(jamoType, offsetX, offsetY, pointCount) {
   };
 }
 
-  // 두 물리점을 연결하고
-// 처음 거리를 스프링의 원래 길이(restLength)로 저장한다.
-function addPhysicsSpring(
-  points,
-  springs,
-  pointIndexA,
-  pointIndexB
-) {
+
+// -----------------------------------------
+// 스프링 생성
+// -----------------------------------------
+
+// 두 물리점을 연결하고 처음 거리를 원래 길이로 저장
+function addPhysicsSpring(points, springs, pointIndexA, pointIndexB) {
   const pointA = points[pointIndexA];
   const pointB = points[pointIndexB];
 
   springs.push({
     a: pointIndexA,
     b: pointIndexB,
-
     restLength: Math.hypot(
       pointB.x - pointA.x,
       pointB.y - pointA.y
@@ -1617,13 +1404,18 @@ function addPhysicsSpring(
 
 
 // =====================================================
-// CONNECTOR MAGNETISM
-// 같은 음절의 connector끼리 가까워지면 서로 끌어당김
+// 8. CONNECTOR
+// 같은 음절의 자모 결합점끼리 자석 반응과 스냅을 처리
 // =====================================================
 
-function applyConnectorMagnetism() {
 
-  // 모든 자모 조합을 비교
+// -----------------------------------------
+// 자석 반응
+// -----------------------------------------
+
+// 가까운 connector끼리 서로 끌어당김
+function applyConnectorMagnetism() {
+  // 모든 자모 조합 비교
   for (let i = 0; i < jamoInstances.length; i++) {
     const a = jamoInstances[i];
 
@@ -1635,51 +1427,29 @@ function applyConnectorMagnetism() {
         continue;
       }
 
-      // a의 connector 확인
+      // 두 자모의 모든 connector 조합 확인
       for (const aIndex of a.connectorPointIndices) {
-
-        // b의 connector 확인
         for (const bIndex of b.connectorPointIndices) {
+          const pointA = a.physicsPoints[aIndex];
+          const pointB = b.physicsPoints[bIndex];
 
-          const pointA =
-            a.physicsPoints[aIndex];
+          const dx = pointB.x - pointA.x;
+          const dy = pointB.y - pointA.y;
+          const distance = Math.hypot(dx, dy);
 
-          const pointB =
-            b.physicsPoints[bIndex];
-
-          const dx =
-            pointB.x - pointA.x;
-
-          const dy =
-            pointB.y - pointA.y;
-
-          const distance =
-            Math.sqrt(
-              dx * dx +
-              dy * dy
-            );
-
-          // 자석 범위 밖이면 아무것도 하지 않음
-          if (
-            distance === 0 ||
-            distance > MAGNET_RADIUS
-          ) {
+          // 자석 범위 밖이면 반응하지 않음
+          if (distance === 0 || distance > MAGNET_RADIUS) {
             continue;
           }
 
-          // 가까워질수록 힘이 강해짐
+          // 가까울수록 자석 힘이 강해짐
           const strength =
-            (1 - distance / MAGNET_RADIUS) *
-            MAGNET_FORCE;
+            (1 - distance / MAGNET_RADIUS) * MAGNET_FORCE;
 
-          // 방향을 길이 1로 정규화
-          const nx =
-            dx / distance;
+          const nx = dx / distance;
+          const ny = dy / distance;
 
-          const ny =
-            dy / distance;
-
-          // 서로 반대 방향으로 같은 힘을 줌
+          // 서로 반대 방향으로 같은 힘 적용
           pointA.vx += nx * strength;
           pointA.vy += ny * strength;
 
@@ -1691,15 +1461,13 @@ function applyConnectorMagnetism() {
   }
 }
 
-// =====================================================
-// CONNECTOR SNAP
-// 같은 음절의 서로 다른 자모 connector끼리
-// 여러 쌍이 동시에 스냅될 수 있음
-// 한 connector는 한 번에 하나의 connector와만 스냅
-// =====================================================
 
+// -----------------------------------------
+// 스냅
+// -----------------------------------------
+
+// 가까운 connector 쌍을 같은 위치로 맞춤
 function applyConnectorSnap() {
-
   // 서로 다른 자모 두 개씩 비교
   for (let i = 0; i < jamoInstances.length; i++) {
     const a = jamoInstances[i];
@@ -1714,7 +1482,7 @@ function applyConnectorSnap() {
 
       const candidates = [];
 
-      // 스냅 거리 안에 있는 모든 connector 조합을 찾음
+      // 스냅 거리 안에 있는 모든 connector 조합 찾기
       for (const aIndex of a.connectorPointIndices) {
         const pointA = a.physicsPoints[aIndex];
 
@@ -1738,54 +1506,28 @@ function applyConnectorSnap() {
 
       // 가까운 쌍부터 처리
       candidates.sort(
-        (first, second) =>
-          first.distance - second.distance
+        (first, second) => first.distance - second.distance
       );
 
-      // 하나의 connector가 여러 곳에 동시에 붙지 않게 기록
-      // const usedA = new Set();
-      // const usedB = new Set();
-
       for (const candidate of candidates) {
-
-        // 이미 다른 connector와 스냅된 점이면 건너뜀
-        // if (
-        //   usedA.has(candidate.aIndex) ||
-        //   usedB.has(candidate.bIndex)
-        // ) {
-        //   continue;
-        // }
-
-        const pointA =
-          a.physicsPoints[candidate.aIndex];
-
-        const pointB =
-          b.physicsPoints[candidate.bIndex];
+        const pointA = a.physicsPoints[candidate.aIndex];
+        const pointB = b.physicsPoints[candidate.bIndex];
 
         // 두 connector의 가운데 위치
-        const snapX =
-          (pointA.x + pointB.x) / 2;
-
-        const snapY =
-          (pointA.y + pointB.y) / 2;
+        const snapX = (pointA.x + pointB.x) / 2;
+        const snapY = (pointA.y + pointB.y) / 2;
 
         // 같은 위치로 스냅
         pointA.x = snapX;
         pointA.y = snapY;
-
         pointB.x = snapX;
         pointB.y = snapY;
 
         // 흔들림 제거
         pointA.vx = 0;
         pointA.vy = 0;
-
         pointB.vx = 0;
         pointB.vy = 0;
-
-        // 이 connector들은 이번 프레임에 이미 사용됨
-        // usedA.add(candidate.aIndex);
-        // usedB.add(candidate.bIndex);
       }
     }
   }
@@ -1793,26 +1535,26 @@ function applyConnectorSnap() {
 
 
 // =====================================================
-// 8. INTERACTION
-// 자모 전체가 아니라 물리점 하나를 직접 잡아서 끌어당김
+// 9. INTERACTION
+// 물리점을 마우스로 선택하고 드래그
 // =====================================================
 
-// 모든 물리점을 확인해서
-// 마우스가 점 위에 있으면 손 모양 커서로 바꾼다.
-function updatePointCursor() {
 
+// -----------------------------------------
+// 마우스 커서
+// -----------------------------------------
+
+// 마우스가 물리점 위에 있으면 손 모양 커서로 변경
+function updatePointCursor() {
   let isOverPoint = false;
 
   for (const instance of jamoInstances) {
-
     for (const point of instance.physicsPoints) {
-
       const distance = Math.hypot(
         mouseX - point.x,
         mouseY - point.y
       );
 
-      // 검은 관절점 / 흰 중간점 모두 같은 방식으로 검사
       if (distance <= POINT_PICK_RADIUS) {
         isOverPoint = true;
         break;
@@ -1824,20 +1566,20 @@ function updatePointCursor() {
     }
   }
 
-
-  if (isOverPoint) {
-    cursor(HAND);
-  } else {
-    cursor(ARROW);
-  }
+  cursor(isOverPoint ? HAND : ARROW);
 }
-// 마우스와 가장 가까운 물리점 하나를 선택
 
+
+// -----------------------------------------
+// 점 선택
+// -----------------------------------------
+
+// 마우스와 가장 가까운 물리점 하나를 선택
 function mousePressed() {
   let closestPoint = null;
   let closestDistance = POINT_PICK_RADIUS;
 
-  // 뒤에 그려진 자모부터 검사한다.
+  // 뒤에 그려진 자모부터 검사
   for (
     let instanceIndex = jamoInstances.length - 1;
     instanceIndex >= 0;
@@ -1847,8 +1589,10 @@ function mousePressed() {
 
     for (let pointIndex = 0; pointIndex < points.length; pointIndex++) {
       const point = points[pointIndex];
-
-      const distance = Math.hypot(mouseX - point.x, mouseY - point.y);
+      const distance = Math.hypot(
+        mouseX - point.x,
+        mouseY - point.y
+      );
 
       if (distance < closestDistance) {
         closestDistance = distance;
@@ -1874,8 +1618,13 @@ function mousePressed() {
   }
 }
 
-// 잡은 점만 마우스 위치로 옮긴다.
-// 나머지 점들은 직접 움직이지 않고 스프링 힘으로 따라온다.
+
+// -----------------------------------------
+// 드래그
+// -----------------------------------------
+
+// 선택한 점만 마우스 위치로 이동
+// 나머지 점은 스프링 힘으로 따라옴
 function mouseDragged() {
   if (draggedPoint === null) {
     return;
@@ -1888,37 +1637,42 @@ function mouseDragged() {
 
   point.x = mouseX;
   point.y = mouseY;
-
   point.vx = 0;
   point.vy = 0;
 }
 
-// 마우스를 놓으면 그 점도 다시 일반 물리점으로 돌아간다.
+
+// -----------------------------------------
+// 드래그 종료
+// -----------------------------------------
+
+// 마우스를 놓으면 다시 일반 물리점으로 돌아감
 function mouseReleased() {
   draggedPoint = null;
 }
 
+
 // =====================================================
-// 9. HANGUL INPUT
-// 입력된 글자를 분해하고 물리 자모 인스턴스를 생성
+// 10. HANGUL INPUT
+// 입력된 글자를 분해하고 자모 개체를 생성
 // =====================================================
 
 function generateJamosFromInput() {
   const inputText = textInput.value().trim();
   const pointCount = pointCountSlider.value();
 
+  // 기존 자모와 드래그 상태 초기화
   jamoInstances = [];
   draggedPoint = null;
 
   const generatedJamos = [];
 
-  // 각 완성형 한글을 초성 / 중성 / 종성으로 분해한다.
-  // 현재 JAMO 데이터에 구조가 정의된 자모만 생성한다.
+  // 각 글자를 초성 / 중성 / 종성으로 분해
   for (let syllableId = 0; syllableId < inputText.length; syllableId++) {
     const character = inputText[syllableId];
-
     const decomposedJamos = decomposeHangulSyllable(character);
 
+    // JAMO 데이터에 정의된 자모만 생성
     for (const jamoType of decomposedJamos) {
       if (JAMO[jamoType]) {
         generatedJamos.push({
@@ -1929,56 +1683,48 @@ function generateJamosFromInput() {
     }
   }
 
-  // 여러 자모를 화면 중앙 주변에 가로로 배치
-  // 자모 사이 간격
-  const gap = 220;
+  // -----------------------------------------
+  // 자모 배치
+  // -----------------------------------------
 
-  // 자모 전체가 캔버스 중앙에 오도록 시작 위치 계산
+  // 여러 자모가 화면 중앙에 오도록 가로로 배치
+  const gap = 220;
   const startOffsetX =
-    width / 2 -
-    200 -
-    ((generatedJamos.length - 1) * gap) / 2;
+    width / 2 - 200 - ((generatedJamos.length - 1) * gap) / 2;
 
   for (let i = 0; i < generatedJamos.length; i++) {
-    const jamoType = generatedJamos[i].type;
+    const jamo = generatedJamos[i];
 
     const instanceX = startOffsetX + i * gap;
-
-    // 자모의 세로 위치도 캔버스 중앙에 맞춤
-    const instanceY =
-      height / 2 - 200;
+    const instanceY = height / 2 - 200;
 
     const physics = createPhysicsStructure(
-      jamoType,
+      jamo.type,
       instanceX,
       instanceY,
-      pointCount,
+      pointCount
     );
 
     jamoInstances.push({
-      type: jamoType,
-
-      syllableId: generatedJamos[i].syllableId,
-
+      type: jamo.type,
+      syllableId: jamo.syllableId,
       physicsPoints: physics.physicsPoints,
-
       physicsSprings: physics.physicsSprings,
-
       connectorPointIndices: physics.connectorPointIndices,
     });
   }
 }
 
+
 // =====================================================
-// 10. HANGUL DECOMPOSITION
+// 11. HANGUL DECOMPOSITION
 // 완성형 한글 한 글자를 초성 / 중성 / 종성으로 분해
 // =====================================================
 
 function decomposeHangulSyllable(character) {
-    // 이미 낱자 자모를 직접 입력한 경우
-    // 분해하지 않고 그대로 사용
-    if (JAMO[character]) {
-      return [character];
+  // 낱자 자모를 직접 입력한 경우 그대로 사용
+  if (JAMO[character]) {
+    return [character];
   }
 
   const characterCode = character.charCodeAt(0);
@@ -1986,24 +1732,24 @@ function decomposeHangulSyllable(character) {
   const HANGUL_START = 0xac00;
   const HANGUL_END = 0xd7a3;
 
-  // 완성형 한글 범위가 아니면 사용하지 않는다.
+  // 완성형 한글 범위가 아니면 사용하지 않음
   if (characterCode < HANGUL_START || characterCode > HANGUL_END) {
     return [];
   }
 
   const syllableIndex = characterCode - HANGUL_START;
 
-  // 한글 유니코드 배열 규칙을 이용해
-  // 초성 / 중성 / 종성 번호를 계산한다.
+  // 한글 유니코드 규칙으로 초성 / 중성 / 종성 번호 계산
   const choseongIndex = Math.floor(syllableIndex / 588);
-
   const jungseongIndex = Math.floor((syllableIndex % 588) / 28);
-
   const jongseongIndex = syllableIndex % 28;
 
-  const decomposedResult = [CHOSEONG[choseongIndex], JUNGSEONG[jungseongIndex]];
+  const decomposedResult = [
+    CHOSEONG[choseongIndex],
+    JUNGSEONG[jungseongIndex],
+  ];
 
-  // 받침이 없는 글자는 JONGSEONG[0]이 빈 문자열이다.
+  // 받침이 있으면 종성 추가
   if (JONGSEONG[jongseongIndex] !== "") {
     decomposedResult.push(JONGSEONG[jongseongIndex]);
   }
@@ -2013,21 +1759,13 @@ function decomposeHangulSyllable(character) {
 
 
 // =====================================================
-// 11. RESPONSIVE CANVAS
+// 12. RESPONSIVE CANVAS
 // 창 크기가 바뀌면 캔버스와 UI 위치를 다시 계산
 // =====================================================
 
 function windowResized() {
-
-  resizeCanvas(
-    getCanvasWidth(),
-    getCanvasHeight()
-  );
-
-  canvas.position(
-    PAGE_MARGIN,
-    PAGE_MARGIN
-  );
+  resizeCanvas(getCanvasWidth(), getCanvasHeight());
+  canvas.position(PAGE_MARGIN, PAGE_MARGIN);
 
   positionControls();
 }
