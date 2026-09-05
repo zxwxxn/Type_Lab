@@ -1261,41 +1261,54 @@ function setup() {
 
 function generateJamosFromInput() {
   const inputText = textInput.value().trim();
-  
+
+  jamoInstances = [];
+
   if (!inputText) {
-    jamoInstances = [];
     return;
   }
-  
-  jamoInstances = [];
-  
-  let xOffset = 50;
-  
-  for (let char of inputText) {
+
+  const validChars = [...inputText].filter(char =>
+    decomposeHangul(char)
+  );
+
+  const characterWidth = 520;
+  const characterGap = 350;
+
+  const totalWidth =
+    characterWidth +
+    (validChars.length - 1) * characterGap;
+
+  const xOffset =
+    (getCanvasWidth() - totalWidth) / 2 - 120;
+
+    const yOffset =
+    (getCanvasHeight() - 400) / 2;
+
+  validChars.forEach((char, index) => {
     const jamoData = decomposeHangul(char);
-    
-    if (!jamoData) continue;
-    
-    // 초성과 중성 사이의 거리를 더 멀게
+    const currentX =
+      xOffset + index * characterGap;
+
     const choStructure = createPhysicsStructure(
       jamoData.cho,
-      xOffset,
-      150,
+      currentX,
+      yOffset,
       pointCountSlider.value()
     );
-    
+
     const jungStructure = createPhysicsStructure(
       jamoData.jung,
-      xOffset + 200,  // 200으로 증가 (이전 120)
-      150,
+      currentX + 200,
+      yOffset,
       pointCountSlider.value()
     );
-    
+
     const combinedPoints = [
       ...choStructure.physicsPoints,
       ...jungStructure.physicsPoints
     ];
-    
+
     const combinedSprings = [
       ...choStructure.physicsSprings,
       ...jungStructure.physicsSprings.map(s => ({
@@ -1304,20 +1317,20 @@ function generateJamosFromInput() {
         restLength: s.restLength
       }))
     ];
-    
+
     const combinedConnectors = [
       ...choStructure.connectorPointIndices,
       ...jungStructure.connectorPointIndices.map(
-        idx => idx + choStructure.physicsPoints.length
+        index => index + choStructure.physicsPoints.length
       )
     ];
-    
+
     const organisms = createOrganismParticles(
       combinedPoints,
       combinedSprings,
       combinedConnectors
     );
-    
+
     jamoInstances.push({
       jamoData,
       physicsPoints: combinedPoints,
@@ -1326,32 +1339,7 @@ function generateJamosFromInput() {
       organismParticles: organisms.particles,
       organismSatellites: organisms.satellites
     });
-    
-    xOffset += 350;  // 글자 사이 간격 증가
-  }
-}
-
-// =====================================================
-// RESPONSIVE CONTROL POSITION
-// =====================================================
-
-function positionControls() {
-  const controlTop = PAGE_MARGIN + getCanvasHeight() + 20;
-  
-  pointCountSlider.position(
-    PAGE_MARGIN,
-    controlTop
-  );
-  
-  textInput.position(
-    PAGE_MARGIN + 100,
-    controlTop
-  );
-  
-  generateButton.position(
-    PAGE_MARGIN + 250,
-    controlTop
-  );
+  });
 }
 
 // =====================================================
@@ -5227,7 +5215,12 @@ function getCanvasWidth() {
 }
 
 function getCanvasHeight() {
-  return 500;
+  return Math.max(
+    400,
+    windowHeight -
+      PAGE_MARGIN * 2 -
+      CONTROL_AREA_HEIGHT
+  );
 }
 
 function smoothstep01(t) {
@@ -5241,20 +5234,29 @@ function smoothstep01(t) {
 // =====================================================
 
 function positionControls() {
-  const controlTop = PAGE_MARGIN + getCanvasHeight() + 20;
-  
+  const controlTop =
+    windowHeight - 55;
+
+  const groupWidth = 310;
+
+  const startX =
+    PAGE_MARGIN +
+    (getCanvasWidth() - groupWidth) / 2;
+
+  pointCountSlider.size(100);
+
   pointCountSlider.position(
-    PAGE_MARGIN,
+    startX,
     controlTop
   );
-  
+
   textInput.position(
-    PAGE_MARGIN + 100,
+    startX + 125,
     controlTop
   );
-  
+
   generateButton.position(
-    PAGE_MARGIN + 250,
+    startX + 265,
     controlTop
   );
 }
@@ -5291,5 +5293,7 @@ function windowResized() {
     getCanvasWidth(),
     getCanvasHeight()
   );
+
+  generateJamosFromInput();
   positionControls();
 }
