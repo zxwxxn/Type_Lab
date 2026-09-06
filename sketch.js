@@ -1203,6 +1203,12 @@ let textInput;
 
 let generateButton;
 
+let releaseButton;
+
+let isReleased = false;
+
+let releaseBatchCount = 0;
+
 
 // =====================================================
 // 5. SETUP
@@ -1247,6 +1253,12 @@ function setup() {
     generateJamosFromInput
   );
 
+  releaseButton = createButton("풀어주기");
+
+  releaseButton.mousePressed(
+    releaseCurrentJamos
+  );
+
 
   positionControls();
 
@@ -1262,7 +1274,9 @@ function setup() {
 function generateJamosFromInput() {
   const inputText = textInput.value().trim();
 
-  jamoInstances = [];
+  jamoInstances = isReleased
+    ? jamoInstances.filter(instance => instance.isReleased)
+    : [];
 
   if (!inputText) {
     return;
@@ -1333,6 +1347,7 @@ function generateJamosFromInput() {
 
     jamoInstances.push({
       jamoData,
+      isReleased: false,
       physicsPoints: combinedPoints,
       physicsSprings: combinedSprings,
       connectorPointIndices: combinedConnectors,
@@ -1340,6 +1355,122 @@ function generateJamosFromInput() {
       organismSatellites: organisms.satellites
     });
   });
+}
+
+function moveInstance(instance, offsetX, offsetY) {
+  for (const point of instance.physicsPoints) {
+    point.x += offsetX;
+    point.y += offsetY;
+  }
+}
+
+function getInstanceBounds(instance) {
+  const points = instance.physicsPoints;
+
+  return points.reduce(
+    (bounds, point) => ({
+      minX: Math.min(bounds.minX, point.x),
+      maxX: Math.max(bounds.maxX, point.x),
+      minY: Math.min(bounds.minY, point.y),
+      maxY: Math.max(bounds.maxY, point.y)
+    }),
+    {
+      minX: Infinity,
+      maxX: -Infinity,
+      minY: Infinity,
+      maxY: -Infinity
+    }
+  );
+}
+
+function releaseCurrentJamos() {
+  const activeInstances =
+    jamoInstances.filter(instance => !instance.isReleased);
+
+  if (activeInstances.length === 0) {
+    return;
+  }
+
+  const compositionBounds = activeInstances.reduce(
+    (bounds, instance) => {
+      const instanceBounds = getInstanceBounds(instance);
+
+      return {
+        minX: Math.min(bounds.minX, instanceBounds.minX),
+        maxX: Math.max(bounds.maxX, instanceBounds.maxX),
+        minY: Math.min(bounds.minY, instanceBounds.minY),
+        maxY: Math.max(bounds.maxY, instanceBounds.maxY)
+      };
+    },
+    {
+      minX: Infinity,
+      maxX: -Infinity,
+      minY: Infinity,
+      maxY: -Infinity
+    }
+  );
+
+  const compositionWidth =
+    compositionBounds.maxX - compositionBounds.minX;
+  const compositionHeight =
+    compositionBounds.maxY - compositionBounds.minY;
+  const compositionCenterX =
+    (compositionBounds.minX + compositionBounds.maxX) / 2;
+  const compositionCenterY =
+    (compositionBounds.minY + compositionBounds.maxY) / 2;
+  const batchIndex = releaseBatchCount++;
+  const targetCenterX = constrain(
+    width * (batchIndex % 2 === 0 ? 0.22 : 0.78),
+    compositionWidth / 2 + 24,
+    width - compositionWidth / 2 - 24
+  );
+  const targetCenterY = constrain(
+    height * (batchIndex % 4 < 2 ? 0.2 : 0.8),
+    compositionHeight / 2 + 24,
+    height - compositionHeight / 2 - 24
+  );
+  const offsetX = targetCenterX - compositionCenterX;
+  const offsetY = targetCenterY - compositionCenterY;
+  const releasePhase = random(TWO_PI);
+
+  activeInstances.forEach(instance => {
+    moveInstance(instance, offsetX, offsetY);
+
+    instance.isReleased = true;
+    instance.releasePhase = releasePhase;
+    instance.releaseLastX = 0;
+    instance.releaseLastY = 0;
+  });
+
+  if (!isReleased) {
+    isReleased = true;
+    canvas.addClass("released-canvas");
+    resizeCanvas(
+      windowWidth,
+      windowHeight
+    );
+    positionControls();
+  }
+
+  mergedParticleKeys.clear();
+  cellFusionStates.clear();
+  mergeContacts = [];
+  fusionBonds = [];
+}
+
+function updateReleasedMotion(instance) {
+  const time = frameCount * 0.008 + instance.releasePhase;
+  const offsetX = sin(time) * 28;
+  const offsetY = cos(time * 0.82) * 22;
+
+  moveInstance(
+    instance,
+    offsetX - instance.releaseLastX,
+    offsetY - instance.releaseLastY
+  );
+
+  instance.releaseLastX = offsetX;
+  instance.releaseLastY = offsetY;
 }
 
 // =====================================================
@@ -1361,10 +1492,14 @@ function draw() {
     i++
   ) {
 
-    updateJamoPhysics(
-      jamoInstances[i],
-      i
-    );
+    if (jamoInstances[i].isReleased) {
+      updateReleasedMotion(jamoInstances[i]);
+    } else {
+      updateJamoPhysics(
+        jamoInstances[i],
+        i
+      );
+    }
   }
 
 
@@ -1705,7 +1840,6 @@ function createOrganismParticles(
     ) {
       continue;
     }
-
 
     const springIndex =
       floor(
@@ -3404,8 +3538,16 @@ function updateMergeContacts() {
       const instanceA =
         jamoInstances[i];
 
+      if (instanceA.isReleased) {
+        continue;
+      }
+
       const instanceB =
         jamoInstances[j];
+
+      if (instanceB.isReleased) {
+        continue;
+      }
 
 
       const contactPairs =
@@ -5259,6 +5401,11 @@ function positionControls() {
     startX + 265,
     controlTop
   );
+
+  releaseButton.position(
+    startX + 315,
+    controlTop
+  );
 }
 
 // =====================================================
@@ -5289,11 +5436,20 @@ function decomposeHangul(char) {
 // =====================================================
 
 function windowResized() {
-  resizeCanvas(
-    getCanvasWidth(),
-    getCanvasHeight()
-  );
+  if (isReleased) {
+    resizeCanvas(
+      windowWidth,
+      windowHeight
+    );
+  } else {
+    resizeCanvas(
+      getCanvasWidth(),
+      getCanvasHeight()
+    );
+  }
 
-  generateJamosFromInput();
+  if (!isReleased) {
+    generateJamosFromInput();
+  }
   positionControls();
 }
