@@ -15,7 +15,6 @@ const CONTROL_AREA_HEIGHT = 110;
 // -----------------------------------------
 
 const JOINT_SIZE = 20;
-const MIDDLE_POINT_SIZE = 3;
 const CONNECTOR_SIZE = 10;
 
 // 마우스로 점을 잡을 수 있는 범위
@@ -45,6 +44,20 @@ const POINT_DAMPING = 0.86;
 // 낮추면: 더 안정적으로 움직임
 // 기존값: 25
 const MAX_POINT_SPEED = 20;
+
+const RELEASED_GENERATION_REPEL_RADIUS = 280;
+const RELEASED_GENERATION_REPEL_PADDING = 110;
+const RELEASED_GENERATION_REPEL_STRENGTH = 0.12;
+const RELEASED_GENERATION_POSITION_PUSH = 0.08;
+const RELEASED_SKIN_REPEL_RADIUS = 68;
+const RELEASED_SKIN_REPEL_PADDING = 38;
+const RELEASED_SKIN_REPEL_STRENGTH = 0.085;
+const RELEASED_SKIN_REPEL_POSITION_PUSH = 0.42;
+const RELEASED_MAX_DRIFT = 1.7;
+const RELEASED_SKIN_ONE_REPEL_MULTIPLIER = 3.2;
+const RELEASED_SKIN_ONE_REPEL_PADDING = 48;
+const RELEASED_SKIN_ONE_POSITION_PUSH = 0.72;
+const RELEASED_SKIN_ONE_MAX_DRIFT = 8.6;
 
 // =====================================================
 // =====================================================
@@ -80,9 +93,46 @@ const GRAPHIC_GROWTH_SPAWN_RADIUS_MIN = 4;
 const GRAPHIC_GROWTH_SPAWN_RADIUS_MAX = 22;
 const GRAPHIC_GROWTH_SPEED = 0.055;
 
+// 자모 위에 자라나는 눈알
+const EYE_GROWTH_DELAY = 500;
+const EYE_GROWTH_DURATION = 700;
+const EYE_MIN_SIZE = 18;
+const EYE_MAX_SIZE = 34;
+const EYE_PUPIL_MIN_RATIO = 0.16;
+const EYE_PUPIL_MAX_RATIO = 0.36;
+const EYE_WHITE_COLOR = 225;
+
 // 자음마다 하나의 점 배열을 갖는다.
 // key = jamo instance, value = generated graphic points
 let generatedGraphicClouds = new Map();
+let generatedYSprouts = new Map();
+let generatedSkin3Sprites = new Map();
+let generatedEyes = new Map();
+let activeGraphicSkin = 1;
+
+const GRAPHIC_SKIN_POINT = 1;
+const GRAPHIC_SKIN_Y = 2;
+const GRAPHIC_SKIN_IMAGE = 3;
+const SKIN3_IMAGE_PATH = "스킨3.png";
+const SKIN3_IMAGE_FALLBACK_PATH = "skin3.png";
+
+let skin3Image = null;
+
+function preload() {
+  skin3Image = loadImage(
+    SKIN3_IMAGE_PATH,
+    () => {},
+    () => {
+      skin3Image = loadImage(
+        SKIN3_IMAGE_FALLBACK_PATH,
+        () => {},
+        () => {
+          skin3Image = null;
+        }
+      );
+    }
+  );
+}
 
 function isConsonantJamo(type) {
   return CHOSEONG.includes(type);
@@ -1087,7 +1137,17 @@ let generateButton;
 let releaseButton;
 let isEditingLocked = false;
 let pendingRegenerate = false;
+let releaseButtonState = 1;
 let releasedGroups = [];
+const PERSISTENCE_KEY = "hangul-organism-state";
+let lastPersistenceSave = 0;
+
+function setReleaseButtonState(state) {
+  releaseButtonState = state;
+  if (releaseButton) {
+    releaseButton.elt.dataset.releaseState = String(state);
+  }
+}
 
 
 // =====================================================
@@ -1159,16 +1219,221 @@ function setup() {
 
   releaseButton = createButton('풀어주기');
   releaseButton.id('release-button');
+  setReleaseButtonState(releaseButtonState);
   releaseButton.mousePressed(() => {
     releaseCurrentJamos();
     textInput.value('');
+    setReleaseButtonState(1);
+    savePersistentState(true);
   });
 
 
   // UI 위치 정리
   positionControls();
 
+  restorePersistentState();
+  window.addEventListener('beforeunload', () => savePersistentState(true));
 
+}
+
+function getPersistentState() {
+  return {
+    version: 1,
+    cameraX,
+    cameraY,
+    zoom,
+    activeGraphicSkin,
+    isEditingLocked,
+    pendingRegenerate,
+    releaseButtonState,
+    inputValue: textInput.value(),
+    pointCount: pointCountSlider.value(),
+    jamoInstances,
+    magneticBonds,
+    generatedGraphicClouds: [...generatedGraphicClouds.entries()].map(
+      ([instance, points]) => ({
+        instanceIndex: jamoInstances.indexOf(instance),
+        points,
+      })
+    ),
+    generatedYSprouts: [...generatedYSprouts.entries()].map(
+      ([instance, sprouts]) => ({
+        instanceIndex: jamoInstances.indexOf(instance),
+        sprouts,
+      })
+    ),
+    generatedSkin3Sprites: [...generatedSkin3Sprites.entries()].map(
+      ([instance, sprites]) => ({
+        instanceIndex: jamoInstances.indexOf(instance),
+        sprites,
+      })
+    ),
+    generatedEyes: [...generatedEyes.entries()].map(
+      ([instance, eyes]) => ({
+        instanceIndex: jamoInstances.indexOf(instance),
+        eyes,
+      })
+    ),
+    releasedGroups,
+  };
+}
+
+function savePersistentState(force = false) {
+  if (!force && millis() - lastPersistenceSave < 250) return;
+
+  try {
+    localStorage.setItem(PERSISTENCE_KEY, JSON.stringify(getPersistentState()));
+    lastPersistenceSave = millis();
+  } catch (error) {
+    console.warn('화면 상태를 저장할 수 없습니다.', error);
+  }
+}
+
+function completeRestoredAnimations() {
+  for (const instance of jamoInstances) {
+    instance.createdAt = 0;
+  }
+
+  for (const points of generatedGraphicClouds.values()) {
+    for (const point of points) {
+      point.createdAt = 0;
+      point.growthStart = 0;
+    }
+  }
+
+  for (const sprouts of generatedYSprouts.values()) {
+    for (const sprout of sprouts) {
+      sprout.createdAt = 0;
+      for (const segment of sprout.segments) segment.delay = 0;
+    }
+  }
+
+  for (const sprites of generatedSkin3Sprites.values()) {
+    for (const sprite of sprites) {
+      sprite.createdAt = 0;
+      sprite.delay = 0;
+    }
+  }
+
+  for (const eyes of generatedEyes.values()) {
+    for (const eye of eyes) eye.createdAt = 0;
+  }
+
+  for (const group of releasedGroups) {
+    for (const sprout of group.ySprouts || []) {
+      sprout.createdAt = 0;
+      for (const segment of sprout.segments) segment.delay = 0;
+    }
+    for (const sprite of group.skin3Sprites || []) {
+      sprite.createdAt = 0;
+      sprite.delay = 0;
+    }
+    for (const eye of group.eyes || []) eye.createdAt = 0;
+  }
+}
+
+function restorePersistentState() {
+  const savedState = localStorage.getItem(PERSISTENCE_KEY);
+  if (!savedState) return;
+
+  try {
+    const state = JSON.parse(savedState);
+    if (!state || state.version !== 1) return;
+
+    cameraX = Number.isFinite(state.cameraX) ? state.cameraX : 0;
+    cameraY = Number.isFinite(state.cameraY) ? state.cameraY : 0;
+    zoom = constrain(
+      Number.isFinite(state.zoom) ? state.zoom : 1,
+      MIN_ZOOM,
+      MAX_ZOOM
+    );
+    activeGraphicSkin = state.activeGraphicSkin || GRAPHIC_SKIN_POINT;
+    isEditingLocked = !!state.isEditingLocked;
+    pendingRegenerate = !!state.pendingRegenerate;
+    releaseButtonState = [1, 2, 3].includes(state.releaseButtonState)
+      ? state.releaseButtonState
+      : (isEditingLocked ? 1 : 2);
+    setReleaseButtonState(releaseButtonState);
+    jamoInstances = Array.isArray(state.jamoInstances) ? state.jamoInstances : [];
+    magneticBonds = Array.isArray(state.magneticBonds) ? state.magneticBonds : [];
+    releasedGroups = Array.isArray(state.releasedGroups) ? state.releasedGroups : [];
+    for (const group of releasedGroups) {
+      group.jointPoints = [];
+      group.points = Array.isArray(group.points) ? group.points : [];
+      group.graphicPoints = Array.isArray(group.graphicPoints) ? group.graphicPoints : [];
+      group.ySprouts = Array.isArray(group.ySprouts) ? group.ySprouts : [];
+      group.skin3Sprites = Array.isArray(group.skin3Sprites) ? group.skin3Sprites : [];
+      group.eyes = Array.isArray(group.eyes) ? group.eyes : [];
+    }
+
+    pointCountSlider.value(state.pointCount ?? 2);
+    textInput.value(state.inputValue || '');
+
+    generatedGraphicClouds = new Map();
+    for (const entry of state.generatedGraphicClouds || []) {
+      const instance = jamoInstances[entry.instanceIndex];
+      if (instance && Array.isArray(entry.points)) {
+        generatedGraphicClouds.set(instance, entry.points);
+      }
+    }
+
+    generatedYSprouts = new Map();
+    for (const entry of state.generatedYSprouts || []) {
+      const instance = jamoInstances[entry.instanceIndex];
+      if (instance && Array.isArray(entry.sprouts)) {
+        generatedYSprouts.set(instance, entry.sprouts);
+      }
+    }
+
+    generatedSkin3Sprites = new Map();
+    for (const entry of state.generatedSkin3Sprites || []) {
+      const instance = jamoInstances[entry.instanceIndex];
+      if (instance && Array.isArray(entry.sprites)) {
+        generatedSkin3Sprites.set(instance, entry.sprites);
+      }
+    }
+
+    generatedEyes = new Map();
+    for (const entry of state.generatedEyes || []) {
+      const instance = jamoInstances[entry.instanceIndex];
+      if (instance && Array.isArray(entry.eyes)) {
+        generatedEyes.set(instance, entry.eyes);
+      }
+    }
+
+    completeRestoredAnimations();
+  } catch (error) {
+    console.warn('저장된 화면 상태를 복원할 수 없습니다.', error);
+    localStorage.removeItem(PERSISTENCE_KEY);
+  }
+}
+
+function resetWorkspace() {
+  jamoInstances = [];
+  releasedGroups = [];
+  magneticBonds = [];
+  draggedPoint = null;
+  generatedGraphicClouds = new Map();
+  generatedYSprouts = new Map();
+  generatedSkin3Sprites = new Map();
+  generatedEyes = new Map();
+  activeGraphicSkin = GRAPHIC_SKIN_POINT;
+  isEditingLocked = false;
+  pendingRegenerate = false;
+  setReleaseButtonState(1);
+  cameraX = 0;
+  cameraY = 0;
+  zoom = 1;
+  textInput.value('');
+  pointCountSlider.value(2);
+  savePersistentState(true);
+}
+
+function keyPressed() {
+  if (keyIsDown(CONTROL) && (key === '0' || keyCode === 48)) {
+    resetWorkspace();
+    return false;
+  }
 }
 
 // 캔버스 아래 가운데에
@@ -1232,34 +1497,6 @@ function mouseWheel(event) {
 
   return false;
 }
-
-function centerCameraOnCurrentJamos() {
-  if (jamoInstances.length === 0) {
-    cameraX = 0;
-    cameraY = 0;
-    zoom = 1;
-    return;
-  }
-
-  let minX = Infinity;
-  let maxX = -Infinity;
-  let minY = Infinity;
-  let maxY = -Infinity;
-
-  for (const instance of jamoInstances) {
-    for (const point of instance.physicsPoints) {
-      minX = Math.min(minX, point.x);
-      maxX = Math.max(maxX, point.x);
-      minY = Math.min(minY, point.y);
-      maxY = Math.max(maxY, point.y);
-    }
-  }
-
-  cameraX = (minX + maxX) / 2;
-  cameraY = (minY + maxY) / 2;
-  zoom = 1;
-}
-
 
 // =====================================================
 // MAGNETIC JOINTS
@@ -1475,6 +1712,7 @@ function findNewMagneticBonds() {
           },
           b: closest,
         });
+        setReleaseButtonState(3);
       }
     }
   }
@@ -1590,7 +1828,7 @@ function applyBondedGraphicPull(point, instanceIndex) {
 // -----------------------------------------------------
 // 관절 쪽으로 모이는 힘 + 서로 가까운 점끼리의 약한 응집력을 함께 사용한다.
 // 너무 가까워지면 약한 반발력을 넣어 한 점으로 완전히 겹치지 않게 한다.
-function applyBondedGraphicCohesion(points, instanceIndex, currentPoint) {
+function applyBondedGraphicCohesion(points, instanceIndex, currentPoint, currentPointIndex) {
   const effect = getBondedGraphicEffect(
     instanceIndex,
     currentPoint.x,
@@ -1619,7 +1857,7 @@ function applyBondedGraphicCohesion(points, instanceIndex, currentPoint) {
       if (neighborCount >= BONDED_GRAPHIC_NEIGHBOR_LIMIT) break;
 
       const other =
-        points[(points.indexOf(currentPoint) + offset) % count];
+        points[(currentPointIndex + offset) % count];
 
       if (!other || other === currentPoint) continue;
 
@@ -1822,6 +2060,11 @@ function updateMagneticJoints() {
 function draw() {
   background(255);
 
+  const zoomLevel = document.getElementById('zoom-level');
+  if (zoomLevel) {
+    zoomLevel.textContent = zoom.toFixed(2);
+  }
+
   for (let i = 0; i < jamoInstances.length; i++) {
     const instance = jamoInstances[i];
     updateJamoPhysics(instance, i);
@@ -1832,6 +2075,9 @@ function draw() {
   updateMagneticJoints();
 
   updateGeneratedGraphicPoints();
+  updateGeneratedYSprouts();
+  updateGeneratedSkin3Sprites();
+  updateGeneratedEyes();
 
   push();
   translate(width / 2, height / 2);
@@ -1843,11 +2089,15 @@ function draw() {
   }
 
   drawGeneratedGraphicPoints();
+  drawGeneratedYSprouts();
+  drawGeneratedSkin3Sprites();
+  drawGeneratedEyes();
   updateReleasedGroups();
   drawReleasedGroups();
   pop();
 
   updatePointCursor();
+  savePersistentState();
 
 }
 
@@ -2143,6 +2393,8 @@ function mousePressed() {
 
     point.vx = 0;
     point.vy = 0;
+    setReleaseButtonState(3);
+    savePersistentState(true);
   }
 }
 
@@ -2191,6 +2443,213 @@ function getReleasedGroupBounds(group) {
   return { minX, minY, maxX, maxY };
 }
 
+function moveReleasedGroup(group, offsetX, offsetY) {
+  for (const point of group.points) {
+    point.x += offsetX;
+    point.y += offsetY;
+  }
+
+  for (const point of group.graphicPoints) {
+    point.x += offsetX;
+    point.y += offsetY;
+  }
+
+  for (const sprout of group.ySprouts) {
+    sprout.x += offsetX;
+    sprout.y += offsetY;
+  }
+
+  for (const sprite of group.skin3Sprites) {
+    sprite.x += offsetX;
+    sprite.y += offsetY;
+  }
+
+  for (const eye of group.eyes) {
+    eye.x += offsetX;
+    eye.y += offsetY;
+  }
+}
+
+function isJamoGenerationActive() {
+  if (draggedPoint !== null || jamoInstances.length === 0) return false;
+
+  const revealDuration = Math.max(
+    GRAPHIC_GROWTH_ENABLED ? GRAPHIC_GROWTH_DURATION : 0,
+    getSkinRevealDuration()
+  );
+
+  return jamoInstances.some((instance) => (
+    millis() - instance.createdAt < revealDuration
+  ));
+}
+
+function repelReleasedGroupFromGeneratingJamos(group) {
+  if (!isJamoGenerationActive() || group.points.length === 0) return;
+
+  let closestReleasedPoint = null;
+  let closestEditingPoint = null;
+  let closestDistance = Infinity;
+
+  for (const releasedPoint of group.points) {
+    for (const instance of jamoInstances) {
+      for (const editingPoint of instance.physicsPoints) {
+        const distance = Math.hypot(
+          releasedPoint.x - editingPoint.x,
+          releasedPoint.y - editingPoint.y
+        );
+
+        if (distance < closestDistance) {
+          closestDistance = distance;
+          closestReleasedPoint = releasedPoint;
+          closestEditingPoint = editingPoint;
+        }
+      }
+    }
+  }
+
+  if (!closestReleasedPoint || closestDistance >= RELEASED_GENERATION_REPEL_RADIUS) {
+    return;
+  }
+
+  let directionX = closestReleasedPoint.x - closestEditingPoint.x;
+  let directionY = closestReleasedPoint.y - closestEditingPoint.y;
+  const directionLength = Math.hypot(directionX, directionY);
+
+  if (directionLength < 0.001) {
+    directionX = group.side || 1;
+    directionY = 0;
+  } else {
+    directionX /= directionLength;
+    directionY /= directionLength;
+  }
+
+  const urgency = 1 - closestDistance / RELEASED_GENERATION_REPEL_RADIUS;
+  group.vx += directionX * urgency * RELEASED_GENERATION_REPEL_STRENGTH;
+  group.vy += directionY * urgency * RELEASED_GENERATION_REPEL_STRENGTH;
+
+  // 생성 중에는 작은 위치 보정을 누적해 물 흐르듯 밀어낸다.
+  const minimumDistance = RELEASED_GENERATION_REPEL_PADDING;
+  if (closestDistance < minimumDistance) {
+    const correction =
+      (minimumDistance - closestDistance) * RELEASED_GENERATION_POSITION_PUSH;
+    moveReleasedGroup(
+      group,
+      directionX * correction,
+      directionY * correction
+    );
+  }
+}
+
+function repelDifferentReleasedSkins() {
+  for (let firstIndex = 0; firstIndex < releasedGroups.length; firstIndex++) {
+    const firstGroup = releasedGroups[firstIndex];
+
+    for (let secondIndex = firstIndex + 1; secondIndex < releasedGroups.length; secondIndex++) {
+      const secondGroup = releasedGroups[secondIndex];
+      if (firstGroup.skin === secondGroup.skin) continue;
+
+      let closestFirstPoint = null;
+      let closestSecondPoint = null;
+      let closestDistance = Infinity;
+
+      for (const firstPoint of firstGroup.points) {
+        for (const secondPoint of secondGroup.points) {
+          const distance = Math.hypot(
+            firstPoint.x - secondPoint.x,
+            firstPoint.y - secondPoint.y
+          );
+
+          if (distance < closestDistance) {
+            closestDistance = distance;
+            closestFirstPoint = firstPoint;
+            closestSecondPoint = secondPoint;
+          }
+        }
+      }
+
+      if (!closestFirstPoint || closestDistance >= RELEASED_SKIN_REPEL_RADIUS) {
+        continue;
+      }
+
+      let directionX = closestFirstPoint.x - closestSecondPoint.x;
+      let directionY = closestFirstPoint.y - closestSecondPoint.y;
+      const directionLength = Math.hypot(directionX, directionY);
+
+      if (directionLength < 0.001) {
+        directionX = firstGroup.side || 1;
+        directionY = 0;
+      } else {
+        directionX /= directionLength;
+        directionY /= directionLength;
+      }
+
+      const urgency = 1 - closestDistance / RELEASED_SKIN_REPEL_RADIUS;
+      const force = urgency * urgency * RELEASED_SKIN_REPEL_STRENGTH;
+
+      const isSkinOneTwoPair =
+        (firstGroup.skin === GRAPHIC_SKIN_POINT && secondGroup.skin === GRAPHIC_SKIN_Y) ||
+        (firstGroup.skin === GRAPHIC_SKIN_Y && secondGroup.skin === GRAPHIC_SKIN_POINT);
+
+      if (isSkinOneTwoPair) {
+        const skinOneIsFirst = firstGroup.skin === GRAPHIC_SKIN_POINT;
+        const skinOneGroup = skinOneIsFirst ? firstGroup : secondGroup;
+        const skinOneDirectionX = skinOneIsFirst ? directionX : -directionX;
+        const skinOneDirectionY = skinOneIsFirst ? directionY : -directionY;
+
+        skinOneGroup.vx +=
+          skinOneDirectionX * force * RELEASED_SKIN_ONE_REPEL_MULTIPLIER;
+        skinOneGroup.vy +=
+          skinOneDirectionY * force * RELEASED_SKIN_ONE_REPEL_MULTIPLIER;
+
+        if (closestDistance < RELEASED_SKIN_ONE_REPEL_PADDING) {
+          const correction =
+            (RELEASED_SKIN_ONE_REPEL_PADDING - closestDistance) *
+            RELEASED_SKIN_ONE_POSITION_PUSH;
+          moveReleasedGroup(
+            skinOneGroup,
+            skinOneDirectionX * correction,
+            skinOneDirectionY * correction
+          );
+        }
+        continue;
+      }
+
+      firstGroup.vx += directionX * force;
+      firstGroup.vy += directionY * force;
+      secondGroup.vx -= directionX * force;
+      secondGroup.vy -= directionY * force;
+
+      if (closestDistance < RELEASED_SKIN_REPEL_PADDING) {
+        const correction =
+          (RELEASED_SKIN_REPEL_PADDING - closestDistance) *
+          RELEASED_SKIN_REPEL_POSITION_PUSH;
+        moveReleasedGroup(
+          firstGroup,
+          directionX * correction,
+          directionY * correction
+        );
+        moveReleasedGroup(
+          secondGroup,
+          -directionX * correction,
+          -directionY * correction
+        );
+      }
+    }
+  }
+
+  for (const group of releasedGroups) {
+    const speed = Math.hypot(group.vx, group.vy);
+    const maxDrift = group.skin === GRAPHIC_SKIN_POINT
+      ? RELEASED_SKIN_ONE_MAX_DRIFT
+      : RELEASED_MAX_DRIFT;
+    if (speed > maxDrift) {
+      const scale = maxDrift / speed;
+      group.vx *= scale;
+      group.vy *= scale;
+    }
+  }
+}
+
 function updateReleasedGroups() {
   if (releasedGroups.length === 0) return;
 
@@ -2203,10 +2662,9 @@ function updateReleasedGroups() {
     group.vx *= 0.985;
     group.vy *= 0.985;
 
-    const maxDrift = 1.7;
     const speed = Math.hypot(group.vx, group.vy);
-    if (speed > maxDrift) {
-      const scale = maxDrift / speed;
+    if (speed > RELEASED_MAX_DRIFT) {
+      const scale = RELEASED_MAX_DRIFT / speed;
       group.vx *= scale;
       group.vy *= scale;
     }
@@ -2220,6 +2678,23 @@ function updateReleasedGroups() {
       point.x += group.vx;
       point.y += group.vy;
     }
+
+    for (const sprout of group.ySprouts) {
+      sprout.x += group.vx;
+      sprout.y += group.vy;
+    }
+
+    for (const sprite of group.skin3Sprites) {
+      sprite.x += group.vx;
+      sprite.y += group.vy;
+    }
+
+    for (const eye of group.eyes) {
+      eye.x += group.vx;
+      eye.y += group.vy;
+    }
+
+    repelReleasedGroupFromGeneratingJamos(group);
 
     const bounds = getReleasedGroupBounds(group);
     const pad = 36;
@@ -2237,17 +2712,16 @@ function updateReleasedGroups() {
       group.vy *= -0.6;
     }
   }
+
+  repelDifferentReleasedSkins();
 }
 
 function drawReleasedGroups() {
   if (releasedGroups.length === 0) return;
 
   for (const group of releasedGroups) {
-    for (const point of group.jointPoints) {
-      fill(180);
-      noStroke();
-      circle(point.x, point.y, JOINT_SIZE);
-    }
+    push();
+    drawingContext.globalAlpha = group.opacity;
 
     noStroke();
     for (const point of group.graphicPoints) {
@@ -2255,6 +2729,12 @@ function drawReleasedGroups() {
       fill(point.r, point.g, point.b, point.alpha);
       circle(point.x, point.y, size);
     }
+
+    drawYSprouts(group.ySprouts, true);
+    drawSkin3Sprites(group.skin3Sprites);
+    drawEyes(group.eyes);
+
+    pop();
   }
 }
 
@@ -2262,9 +2742,10 @@ function releaseCurrentJamos() {
   if (isEditingLocked || jamoInstances.length === 0) return;
 
   const releasedPoints = [];
-  const boneSegments = [];
-  const jointPoints = [];
   const graphicPoints = [];
+  const ySprouts = [];
+  const skin3Sprites = [];
+  const eyes = [];
 
   for (let instanceIndex = 0; instanceIndex < jamoInstances.length; instanceIndex++) {
     const instance = jamoInstances[instanceIndex];
@@ -2275,18 +2756,6 @@ function releaseCurrentJamos() {
     }));
 
     releasedPoints.push(...localPoints);
-
-    for (const point of localPoints) {
-      if (point.isJoint) {
-        jointPoints.push(point);
-      }
-    }
-
-    for (const spring of instance.physicsSprings) {
-      const a = localPoints[spring.a];
-      const b = localPoints[spring.b];
-      boneSegments.push({ a, b });
-    }
 
     const graphicCloud = generatedGraphicClouds.get(instance);
     if (graphicCloud) {
@@ -2304,6 +2773,29 @@ function releaseCurrentJamos() {
         });
       }
     }
+
+    const sprouts = generatedYSprouts.get(instance);
+    if (sprouts) {
+      ySprouts.push(...sprouts.map((sprout) => ({
+        ...sprout,
+        bondedInfluence: getBondedGraphicActivation(
+          instanceIndex,
+          sprout.x,
+          sprout.y
+        ),
+        segments: sprout.segments.map((segment) => ({ ...segment })),
+      })));
+    }
+
+    const sprites = generatedSkin3Sprites.get(instance);
+    if (sprites) {
+      skin3Sprites.push(...sprites.map((sprite) => ({ ...sprite })));
+    }
+
+    const instanceEyes = generatedEyes.get(instance);
+    if (instanceEyes) {
+      eyes.push(...instanceEyes.map((eye) => ({ ...eye })));
+    }
   }
 
   if (releasedPoints.length === 0) return;
@@ -2311,9 +2803,13 @@ function releaseCurrentJamos() {
   const side = random() < 0.5 ? -1 : 1;
   const group = {
     points: releasedPoints,
-    boneSegments,
-    jointPoints,
+    jointPoints: [],
     graphicPoints,
+    ySprouts,
+    skin3Sprites,
+    eyes,
+    skin: activeGraphicSkin,
+    opacity: random(0.5, 0.75),
     vx: side * random(0.8, 1.8),
     vy: random(-0.5, 0.5),
     side,
@@ -2326,8 +2822,12 @@ function releaseCurrentJamos() {
   magneticBonds = [];
   draggedPoint = null;
   generatedGraphicClouds = new Map();
+  generatedYSprouts = new Map();
+  generatedSkin3Sprites = new Map();
+  generatedEyes = new Map();
   isEditingLocked = true;
   pendingRegenerate = false;
+  savePersistentState(true);
 }
 
 // =====================================================
@@ -2347,6 +2847,10 @@ function generateJamosFromInput() {
   draggedPoint = null;
   magneticBonds = [];
   generatedGraphicClouds = new Map();
+  generatedYSprouts = new Map();
+  generatedSkin3Sprites = new Map();
+  generatedEyes = new Map();
+  activeGraphicSkin = Math.floor(random(GRAPHIC_SKIN_POINT, GRAPHIC_SKIN_IMAGE + 1));
 
   const generatedJamos = [];
 
@@ -2366,14 +2870,14 @@ function generateJamosFromInput() {
 
   const gap = 220;
   const startOffsetX =
-    width / 2 -
+    cameraX -
     200 -
     ((generatedJamos.length - 1) * gap) / 2;
 
   for (let i = 0; i < generatedJamos.length; i++) {
     const jamoType = generatedJamos[i].type;
     const instanceX = startOffsetX + i * gap;
-    const instanceY = height / 2 - 200;
+    const instanceY = cameraY - 200;
 
     const physics = createPhysicsStructure(
       jamoType,
@@ -2388,24 +2892,38 @@ function generateJamosFromInput() {
       physicsPoints: physics.physicsPoints,
       physicsSprings: physics.physicsSprings,
       connectorPointIndices: physics.connectorPointIndices,
-      isGraphicSkeleton: false,
       createdAt: millis(),
     };
 
     jamoInstances.push(instance);
 
     // 자음/모음 모두 뼈대 선분 자체를 점으로 대체한다.
-    if (GENERATED_GRAPHIC_ENABLED && isGeneratedGraphicJamo(jamoType)) {
+    if (
+      activeGraphicSkin === GRAPHIC_SKIN_POINT &&
+      GENERATED_GRAPHIC_ENABLED &&
+      isGeneratedGraphicJamo(jamoType)
+    ) {
       generatedGraphicClouds.set(
         instance,
         createGeneratedGraphicPointCloud(instance)
       );
     }
+
+    if (activeGraphicSkin === GRAPHIC_SKIN_Y && isGeneratedGraphicJamo(jamoType)) {
+      generatedYSprouts.set(instance, createGeneratedYSprouts(instance));
+    }
+
+    if (activeGraphicSkin === GRAPHIC_SKIN_IMAGE && isGeneratedGraphicJamo(jamoType)) {
+      generatedSkin3Sprites.set(instance, createGeneratedSkin3Sprites(instance));
+    }
+
+    generatedEyes.set(instance, createGeneratedEyes(instance));
   }
 
-  centerCameraOnCurrentJamos();
   isEditingLocked = false;
   pendingRegenerate = false;
+  setReleaseButtonState(2);
+  savePersistentState(true);
 }
 
 // =====================================================
@@ -2665,7 +3183,8 @@ function updateGeneratedGraphicPoints() {
     const instanceIndex = jamoInstances.indexOf(instance);
     if (instanceIndex < 0) continue;
 
-    for (const point of points) {
+    for (let pointIndex = 0; pointIndex < points.length; pointIndex++) {
+      const point = points[pointIndex];
       const growing = updateGeneratedGrowth(point);
       const target = getGeneratedPointTarget(point, instance);
       const targetVX = target.x - point.previousTargetX;
@@ -2716,7 +3235,7 @@ function updateGeneratedGraphicPoints() {
 
       // magnetic bond가 생기면 기존 그래픽과 똑같이
       // 관절 주변 점 응집/끌림 효과를 적용한다.
-      applyBondedGraphicCohesion(points, instanceIndex, point);
+      applyBondedGraphicCohesion(points, instanceIndex, point, pointIndex);
 
       point.vx *= GENERATED_DAMPING;
       point.vy *= GENERATED_DAMPING;
@@ -2761,6 +3280,360 @@ function drawGeneratedGraphicPoints() {
         point.x,
         point.y,
         style.size * pulse * visibility
+      );
+    }
+  }
+}
+
+function createGeneratedYSprouts(instance) {
+  const sprouts = [];
+  const springs = instance.physicsSprings;
+  const totalLength = springs.reduce((sum, spring) => {
+    const a = instance.physicsPoints[spring.a];
+    const b = instance.physicsPoints[spring.b];
+    return sum + Math.hypot(b.x - a.x, b.y - a.y);
+  }, 0);
+  const targetCount = constrain(Math.round(totalLength * 0.42), 90, 260);
+
+  for (let edgeIndex = 0; edgeIndex < springs.length; edgeIndex++) {
+    const spring = springs[edgeIndex];
+    const a = instance.physicsPoints[spring.a];
+    const b = instance.physicsPoints[spring.b];
+    const length = Math.hypot(b.x - a.x, b.y - a.y);
+    const count = Math.max(2, Math.round(targetCount * length / totalLength));
+    const dx = (b.x - a.x) / length;
+    const dy = (b.y - a.y) / length;
+    const normalX = -dy;
+    const normalY = dx;
+
+    for (let i = 0; i < count; i++) {
+      const edgeT = (i + random(0.25, 0.75)) / count;
+      const normalOffset = randomGaussian() * 10;
+      const anchorX = a.x + dx * edgeT * length + normalX * normalOffset;
+      const anchorY = a.y + dy * edgeT * length + normalY * normalOffset;
+      const size = random(5, 28);
+      const branchLength = size * random(0.42, 0.58);
+      const branchY = -size * 0.58;
+
+      sprouts.push({
+        x: anchorX,
+        y: anchorY,
+        baseX: anchorX,
+        baseY: anchorY,
+        edgeIndex,
+        edgeT,
+        normalOffset,
+        rotation: random(TWO_PI),
+        alpha: random(90, 256),
+        strokeScale: random(0.35, 1.8),
+        createdAt: millis(),
+        segments: [
+          {
+            x1: 0,
+            y1: 0,
+            x2: 0,
+            y2: -size * 0.58,
+            width: random(0.8, 1.5),
+            delay: random(0, 900),
+            duration: random(1100, 1800),
+          },
+          ...[-1, 1].map((direction) => ({
+            x1: 0,
+            y1: branchY,
+            x2: direction * branchLength * 0.72,
+            y2: branchY - branchLength,
+            width: random(0.55, 1.15),
+            delay: random(550, 1100),
+            duration: random(900, 1500),
+          })),
+        ],
+      });
+    }
+  }
+
+  return sprouts;
+}
+
+function updateGeneratedYSprouts() {
+  for (const [instance, sprouts] of generatedYSprouts.entries()) {
+    if (jamoInstances.indexOf(instance) < 0) continue;
+
+    for (const sprout of sprouts) {
+      const target = getGeneratedPointTarget(sprout, instance);
+      sprout.x = target.x;
+      sprout.y = target.y;
+    }
+  }
+}
+
+function createGeneratedSkin3Sprites(instance) {
+  const sprites = [];
+  const springs = instance.physicsSprings;
+  const totalLength = springs.reduce((sum, spring) => {
+    const a = instance.physicsPoints[spring.a];
+    const b = instance.physicsPoints[spring.b];
+    return sum + Math.hypot(b.x - a.x, b.y - a.y);
+  }, 0);
+  const targetCount = constrain(Math.round(totalLength * 0.012), 3, 8);
+
+  for (let edgeIndex = 0; edgeIndex < springs.length; edgeIndex++) {
+    const spring = springs[edgeIndex];
+    const a = instance.physicsPoints[spring.a];
+    const b = instance.physicsPoints[spring.b];
+    const length = Math.hypot(b.x - a.x, b.y - a.y);
+    const count = Math.max(1, Math.round(targetCount * length / totalLength));
+    const dx = (b.x - a.x) / length;
+    const dy = (b.y - a.y) / length;
+    const normalX = -dy;
+    const normalY = dx;
+
+    for (let i = 0; i < count; i++) {
+      const edgeT = (i + random(0.2, 0.8)) / count;
+      const normalOffset = randomGaussian() * 6;
+      const x = a.x + dx * edgeT * length + normalX * normalOffset;
+      const y = a.y + dy * edgeT * length + normalY * normalOffset;
+
+      sprites.push({
+        x,
+        y,
+        baseX: x,
+        baseY: y,
+        edgeIndex,
+        edgeT,
+        normalOffset,
+        size: random(15, 90),
+        rotation: random(TWO_PI),
+        alpha: random(150, 255),
+        createdAt: millis(),
+        delay: random(0, 2600),
+        duration: random(1400, 2800),
+      });
+    }
+  }
+
+  return sprites;
+}
+
+function updateGeneratedSkin3Sprites() {
+  for (const [instance, sprites] of generatedSkin3Sprites.entries()) {
+    if (jamoInstances.indexOf(instance) < 0) continue;
+
+    for (const sprite of sprites) {
+      const target = getGeneratedPointTarget(sprite, instance);
+      sprite.x = target.x;
+      sprite.y = target.y;
+    }
+  }
+}
+
+function drawGeneratedSkin3Sprites() {
+  for (const sprites of generatedSkin3Sprites.values()) {
+    drawSkin3Sprites(sprites);
+  }
+}
+
+function drawSkin3Sprites(sprites) {
+  if (!sprites) return;
+
+  imageMode(CENTER);
+  noStroke();
+
+  for (const sprite of sprites) {
+    const progress = smoothstep01(constrain(
+      (millis() - sprite.createdAt - sprite.delay) / sprite.duration,
+      0,
+      1
+    ));
+    if (progress <= 0) continue;
+
+    const size = sprite.size * progress;
+    push();
+    translate(sprite.x, sprite.y);
+    rotate(sprite.rotation);
+
+    if (skin3Image) {
+      tint(255, sprite.alpha * progress);
+      image(skin3Image, 0, 0, size, size);
+      noTint();
+    } else {
+      fill(190, 0, 0, sprite.alpha * progress);
+      circle(0, 0, size * 0.72);
+    }
+
+    pop();
+  }
+}
+
+function createGeneratedEyes(instance) {
+  const eyes = [];
+  const eyeCount = Math.floor(random(1, 4));
+  const skinCompletionTime = instance.createdAt + getSkinRevealDuration();
+
+  for (let i = 0; i < eyeCount; i++) {
+    const edgeIndex = Math.floor(random(instance.physicsSprings.length));
+    const spring = instance.physicsSprings[edgeIndex];
+    const a = instance.physicsPoints[spring.a];
+    const b = instance.physicsPoints[spring.b];
+    const length = Math.hypot(b.x - a.x, b.y - a.y);
+    const edgeT = random(0.15, 0.85);
+    const normalOffset = randomGaussian() * Math.min(18, length * 0.12);
+
+    eyes.push({
+      x: 0,
+      y: 0,
+      baseX: 0,
+      baseY: 0,
+      edgeIndex,
+      edgeT,
+      normalOffset,
+      size: random(EYE_MIN_SIZE, EYE_MAX_SIZE),
+      pupilRatio: random(EYE_PUPIL_MIN_RATIO, EYE_PUPIL_MAX_RATIO),
+      createdAt: skinCompletionTime,
+    });
+  }
+
+  for (const eye of eyes) {
+    const target = getGeneratedPointTarget(eye, instance);
+    eye.x = target.x;
+    eye.y = target.y;
+    eye.baseX = target.x;
+    eye.baseY = target.y;
+  }
+
+  return eyes;
+}
+
+function getSkinRevealDuration() {
+  if (activeGraphicSkin === GRAPHIC_SKIN_POINT) {
+    return GRAPHIC_GROWTH_ENABLED ? GRAPHIC_GROWTH_DURATION : 0;
+  }
+
+  if (activeGraphicSkin === GRAPHIC_SKIN_Y) {
+    return 2600;
+  }
+
+  return 5400;
+}
+
+function getEyeGrowth(eye) {
+  return smoothstep01(
+    (millis() - eye.createdAt - EYE_GROWTH_DELAY) / EYE_GROWTH_DURATION
+  );
+}
+
+function updateGeneratedEyes() {
+  for (const [instance, eyes] of generatedEyes.entries()) {
+    if (jamoInstances.indexOf(instance) < 0) continue;
+
+    for (const eye of eyes) {
+      const target = getGeneratedPointTarget(eye, instance);
+      eye.x = target.x;
+      eye.y = target.y;
+    }
+  }
+}
+
+function drawEyes(eyes) {
+  if (!eyes) return;
+
+  const worldMouse = screenToWorld(mouseX, mouseY);
+  noStroke();
+
+  for (const eye of eyes) {
+    const growth = getEyeGrowth(eye);
+    if (growth <= 0) continue;
+
+    const whiteRadius = eye.size * growth * 0.5;
+    const pupilRadius = whiteRadius * eye.pupilRatio;
+    const maxPupilOffset = Math.max(0, whiteRadius - pupilRadius);
+    let pupilX = worldMouse.x - eye.x;
+    let pupilY = worldMouse.y - eye.y;
+    const pupilDistance = Math.hypot(pupilX, pupilY);
+
+    if (pupilDistance > maxPupilOffset && pupilDistance > 0) {
+      const scale = maxPupilOffset / pupilDistance;
+      pupilX *= scale;
+      pupilY *= scale;
+    }
+
+    // 밝은 중심과 가장자리 음영을 겹쳐 흰자를 둥근 구처럼 보이게 한다.
+    fill(155, 160, 166, 150);
+    circle(eye.x + whiteRadius * 0.08, eye.y + whiteRadius * 0.1, whiteRadius * 2.08);
+    fill(EYE_WHITE_COLOR);
+    circle(eye.x, eye.y, whiteRadius * 2);
+    fill(245, 246, 248, 170);
+    circle(
+      eye.x - whiteRadius * 0.2,
+      eye.y - whiteRadius * 0.22,
+      whiteRadius * 1.45
+    );
+    fill(185, 190, 196, 75);
+    circle(
+      eye.x + whiteRadius * 0.2,
+      eye.y + whiteRadius * 0.24,
+      whiteRadius * 1.35
+    );
+    fill(0);
+    circle(eye.x + pupilX, eye.y + pupilY, pupilRadius * 2);
+  }
+}
+
+function drawGeneratedEyes() {
+  for (const eyes of generatedEyes.values()) {
+    drawEyes(eyes);
+  }
+}
+
+function drawGeneratedYSprouts() {
+  for (const [instance, sprouts] of generatedYSprouts.entries()) {
+    const instanceIndex = jamoInstances.indexOf(instance);
+    if (instanceIndex < 0) continue;
+    drawYSprouts(sprouts, false, instanceIndex);
+  }
+}
+
+function drawYSprouts(sprouts, released = false, instanceIndex = -1) {
+  if (!sprouts) return;
+
+  noFill();
+
+  for (const sprout of sprouts) {
+    const cosine = Math.cos(sprout.rotation);
+    const sine = Math.sin(sprout.rotation);
+    const bondedInfluence = !released && instanceIndex >= 0
+      ? getBondedGraphicActivation(instanceIndex, sprout.x, sprout.y)
+      : (sprout.bondedInfluence || 0);
+    const bondedScale = 1 + bondedInfluence * 2.4;
+    const bondedStrokeScale = 1 + bondedInfluence * 2.2;
+
+    for (const segment of sprout.segments) {
+      const elapsed = millis() - sprout.createdAt;
+      const progress = constrain(
+        (elapsed - segment.delay) / segment.duration,
+        0,
+        1
+      );
+      if (progress <= 0) continue;
+
+      const eased = smoothstep01(progress);
+      const startLocalX = (segment.x1 * bondedScale) * cosine -
+        (segment.y1 * bondedScale) * sine;
+      const startLocalY = (segment.x1 * bondedScale) * sine +
+        (segment.y1 * bondedScale) * cosine;
+      const endLocalX = lerp(segment.x1, segment.x2, eased) * bondedScale;
+      const endLocalY = lerp(segment.y1, segment.y2, eased) * bondedScale;
+      const endX = endLocalX * cosine - endLocalY * sine;
+      const endY = endLocalX * sine + endLocalY * cosine;
+      stroke(0, sprout.alpha);
+      strokeWeight(
+        segment.width * sprout.strokeScale * bondedStrokeScale *
+        (released ? 0.95 : 1)
+      );
+      line(
+        sprout.x + startLocalX,
+        sprout.y + startLocalY,
+        sprout.x + endX,
+        sprout.y + endY
       );
     }
   }
