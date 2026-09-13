@@ -21,6 +21,24 @@ const CONNECTOR_SIZE = 28;
 // 마우스로 점을 잡을 수 있는 범위
 const POINT_PICK_RADIUS = 20;
 
+// 호버했을 때 표시되는 관절점 UI
+const HOVER_JOINT_SIZE = 8;
+const HOVER_CONNECTOR_SIZE = 14;
+
+
+// -----------------------------------------
+// 뼈대 점 간격
+// -----------------------------------------
+
+// 현재 JAMO DATA의 기준 간격
+const BASE_POINT_SPACING = 40;
+
+// 코드에서 조절할 뼈대 간격
+const POINT_SPACING = 40;
+
+// 자모 좌표의 중심
+const JAMO_CENTER = 200;
+
 
 // -----------------------------------------
 // 점 물리
@@ -58,11 +76,27 @@ const SNAP_DISTANCE = 25;
 
 
 // -----------------------------------------
+// 스킨
+// -----------------------------------------
+
+// 뼈대 한 구간에 생성할 스킨 점 개수
+const SKIN_DOT_MIN = 10;
+const SKIN_DOT_MAX = 18;
+
+// 스킨 점 크기 범위
+const SKIN_DOT_SIZE_MIN = 5;
+const SKIN_DOT_SIZE_MAX = 16;
+
+// 뼈대 중심에서 퍼질 수 있는 거리
+const SKIN_SPREAD = 14;
+
+
+// -----------------------------------------
 // 디버그 표시
 // -----------------------------------------
 
 // 물리 뼈대를 화면에 보여줄지 여부
-const SHOW_SKELETON = true;
+const SHOW_SKELETON = false;
 
 
 // -----------------------------------------
@@ -85,6 +119,12 @@ function getCanvasHeight() {
 // 각 자모의 관절(nodes), 선(edges), 결합점(connectors)
 // =====================================================
 
+// -----------------------------------------
+// 자모 grid 좌표
+// -----------------------------------------
+
+// JAMO의 node 좌표는 px가 아니라 정수 grid 단위로 사용
+
 const JAMO = {
 
   // -----------------------------------------
@@ -93,6 +133,9 @@ const JAMO = {
 
   // ㄱ
   'ㄱ': {
+    
+    // grid: true,
+
     nodes: [
       { x: 120, y: 120 },
       { x: 280, y: 120 },
@@ -138,10 +181,10 @@ const JAMO = {
   // ㄹ
   'ㄹ': {
     nodes: [
-      { x: 120, y: 100 },
-      { x: 280, y: 100 },
-      { x: 280, y: 180 },
-      { x: 120, y: 180 },
+      { x: 120, y: 120 },
+      { x: 280, y: 120 },
+      { x: 280, y: 200 },
+      { x: 120, y: 200 },
       { x: 120, y: 280 },
       { x: 280, y: 280 }
     ],
@@ -175,12 +218,13 @@ const JAMO = {
   // ㅂ
   'ㅂ': {
     nodes: [
-      { x: 130, y: 100 }, // 0 왼쪽 위
-      { x: 130, y: 200 }, // 1 왼쪽 가운데
-      { x: 130, y: 300 }, // 2 왼쪽 아래
-      { x: 270, y: 100 }, // 3 오른쪽 위
-      { x: 270, y: 200 }, // 4 오른쪽 가운데
-      { x: 270, y: 300 }  // 5 오른쪽 아래
+      { x: 120, y: 120 },
+      { x: 120, y: 200 },
+      { x: 120, y: 280 },
+
+      { x: 280, y: 120 },
+      { x: 280, y: 200 },
+      { x: 280, y: 280 }
     ],
     edges: [
       // 왼쪽 세로
@@ -216,14 +260,14 @@ const JAMO = {
   // 원형을 8개의 관절로 표현
   'ㅇ': {
     nodes: [
-      { x: 200, y: 100 },
-      { x: 270, y: 130 },
-      { x: 300, y: 200 },
-      { x: 270, y: 270 },
-      { x: 200, y: 300 },
-      { x: 130, y: 270 },
-      { x: 100, y: 200 },
-      { x: 130, y: 130 }
+      { x: 200, y: 120 },
+      { x: 260, y: 140 },
+      { x: 280, y: 200 },
+      { x: 260, y: 260 },
+      { x: 200, y: 280 },
+      { x: 140, y: 260 },
+      { x: 120, y: 200 },
+      { x: 140, y: 140 }
     ],
     edges: [
       [0, 1],
@@ -241,11 +285,12 @@ const JAMO = {
   // ㅈ
   'ㅈ': {
     nodes: [
-      { x: 120, y: 100 }, // 0 왼쪽 위
-      { x: 200, y: 100 }, // 1 가운데 위
-      { x: 280, y: 100 }, // 2 오른쪽 위
-      { x: 120, y: 280 }, // 3 왼쪽 아래
-      { x: 280, y: 280 }  // 4 오른쪽 아래
+      { x: 120, y: 120 },
+      { x: 200, y: 120 },
+      { x: 280, y: 120 },
+
+      { x: 120, y: 280 },
+      { x: 280, y: 280 }
     ],
     edges: [
       [0, 1],
@@ -259,12 +304,14 @@ const JAMO = {
   // ㅊ
   'ㅊ': {
     nodes: [
-      { x: 120, y: 140 }, // 0 왼쪽
-      { x: 200, y: 140 }, // 1 중심
-      { x: 280, y: 140 }, // 2 오른쪽
-      { x: 200, y: 70 },  // 3 위쪽 끝
-      { x: 120, y: 300 }, // 4 왼쪽 아래
-      { x: 280, y: 300 }  // 5 오른쪽 아래
+      { x: 120, y: 120 }, // 0 왼쪽
+      { x: 200, y: 120 }, // 1 중심
+      { x: 280, y: 120 }, // 2 오른쪽
+
+      { x: 200, y: 60 },  // 3 위쪽 끝
+
+      { x: 120, y: 280 }, // 4 왼쪽 아래
+      { x: 280, y: 280 }  // 5 오른쪽 아래
     ],
     edges: [
       // 위 가로획
@@ -284,11 +331,13 @@ const JAMO = {
   // ㅋ
   'ㅋ': {
     nodes: [
-      { x: 120, y: 100 },
-      { x: 280, y: 100 },
+      { x: 120, y: 120 },
+      { x: 280, y: 120 },
+
       { x: 280, y: 200 },
-      { x: 150, y: 200 },
-      { x: 280, y: 300 }
+      { x: 120, y: 200 },
+
+      { x: 280, y: 280 }
     ],
     edges: [
       [0, 1],
@@ -302,12 +351,14 @@ const JAMO = {
   // ㅌ
   'ㅌ': {
     nodes: [
-      { x: 120, y: 100 }, // 0 왼쪽 위
-      { x: 280, y: 100 }, // 1 오른쪽 위
+      { x: 120, y: 120 }, // 0 왼쪽 위
+      { x: 280, y: 120 }, // 1 오른쪽 위
+
       { x: 120, y: 200 }, // 2 왼쪽 가운데
       { x: 280, y: 200 }, // 3 오른쪽 가운데
-      { x: 120, y: 300 }, // 4 왼쪽 아래
-      { x: 280, y: 300 }  // 5 오른쪽 아래
+
+      { x: 120, y: 280 }, // 4 왼쪽 아래
+      { x: 280, y: 280 }  // 5 오른쪽 아래
     ],
     edges: [
       // 위 가로
@@ -330,16 +381,16 @@ const JAMO = {
   'ㅍ': {
     nodes: [
       // 위 가로획
-      { x: 100, y: 130 }, // 0 왼쪽 끝
-      { x: 150, y: 130 }, // 1 왼쪽 교차점
-      { x: 250, y: 130 }, // 2 오른쪽 교차점
-      { x: 300, y: 130 }, // 3 오른쪽 끝
+      { x: 120, y: 120 }, // 0 왼쪽 끝
+      { x: 160, y: 120 }, // 1 왼쪽 교차점
+      { x: 240, y: 120 }, // 2 오른쪽 교차점
+      { x: 280, y: 120 }, // 3 오른쪽 끝
 
       // 아래 가로획
-      { x: 100, y: 270 }, // 4 왼쪽 끝
-      { x: 150, y: 270 }, // 5 왼쪽 교차점
-      { x: 250, y: 270 }, // 6 오른쪽 교차점
-      { x: 300, y: 270 }  // 7 오른쪽 끝
+      { x: 120, y: 280 }, // 4 왼쪽 끝
+      { x: 160, y: 280 }, // 5 왼쪽 교차점
+      { x: 240, y: 280 }, // 6 오른쪽 교차점
+      { x: 280, y: 280 }  // 7 오른쪽 끝
     ],
     edges: [
       // 위 가로획
@@ -363,20 +414,20 @@ const JAMO = {
   'ㅎ': {
     nodes: [
       // 윗부분
-      { x: 140, y: 110 }, // 0 왼쪽
-      { x: 200, y: 110 }, // 1 중심
-      { x: 260, y: 110 }, // 2 오른쪽
-      { x: 200, y: 50 },  // 3 위쪽 꼭지
+    { x: 140, y: 120 }, // 0 왼쪽
+    { x: 200, y: 120 }, // 1 중심
+    { x: 260, y: 120 }, // 2 오른쪽
+    { x: 200, y: 60 },  // 3 위쪽 끝
 
       // 아래 ㅇ
-      { x: 200, y: 170 }, // 4 위
-      { x: 270, y: 200 }, // 5 오른쪽 위
-      { x: 300, y: 270 }, // 6 오른쪽
-      { x: 270, y: 340 }, // 7 오른쪽 아래
-      { x: 200, y: 370 }, // 8 아래
-      { x: 130, y: 340 }, // 9 왼쪽 아래
-      { x: 100, y: 270 }, // 10 왼쪽
-      { x: 130, y: 200 }  // 11 왼쪽 위
+      { x: 200, y: 160 }, // 4 위
+      { x: 240, y: 180 }, // 5 오른쪽 위
+      { x: 260, y: 220 }, // 6 오른쪽
+      { x: 240, y: 260 }, // 7 오른쪽 아래
+      { x: 200, y: 280 }, // 8 아래
+      { x: 160, y: 260 }, // 9 왼쪽 아래
+      { x: 140, y: 220 }, // 10 왼쪽
+      { x: 160, y: 180 }  // 11 왼쪽 위
     ],
     edges: [
       // 윗부분
@@ -1087,6 +1138,10 @@ let canvas;
 // 생성된 자모 개체
 let jamoInstances = [];
 
+// 현재 마우스가 올라가 있는 자모
+// 없으면 null
+let hoveredJamoIndex = null;
+
 // 현재 마우스로 잡고 있는 물리점
 // 잡고 있지 않으면 null
 let draggedPoint = null;
@@ -1171,9 +1226,23 @@ function draw() {
   // 물리 계산 후 connector 스냅
   applyConnectorSnap();
 
+  // 현재 마우스가 올라가 있는 자모 확인
+  updateHoveredJamo();
+
   // 모든 자모 그리기
-  for (const instance of jamoInstances) {
-    drawJamo(instance);
+  for (let i = 0; i < jamoInstances.length; i++) {
+    const instance = jamoInstances[i];
+
+    drawSkin(instance);
+
+    if (SHOW_SKELETON) {
+      drawJamo(instance);
+    }
+
+    // 호버한 자모에만 관절점 표시
+    if (i === hoveredJamoIndex) {
+      drawJamoHandles(instance);
+    }
   }
 
   // 현재 Point Count 표시
@@ -1188,6 +1257,109 @@ function draw() {
 // 자모의 물리 구조를 만들고 움직임과 화면 표시를 처리
 // =====================================================
 
+
+// -----------------------------------------
+// 스킨 점 생성
+// -----------------------------------------
+
+function createSkinDots(physicsSprings) {
+  const skinDots = [];
+
+  for (let springIndex = 0; springIndex < physicsSprings.length; springIndex++) {
+    // 뼈대 선마다 점 개수를 조금씩 다르게 생성
+    const dotCount = floor(
+      random(SKIN_DOT_MIN, SKIN_DOT_MAX + 1)
+    );
+
+    for (let i = 0; i < dotCount; i++) {
+      // 획 전체에 기본적으로 퍼뜨린 뒤 위치를 조금씩 흐트러뜨림
+      const baseT = (i + 0.5) / dotCount;
+
+      const t = constrain(
+        baseT + random(-0.35 / dotCount, 0.35 / dotCount),
+        0,
+        1
+      );
+
+      skinDots.push({
+        springIndex,
+        t,
+        offset: random(-SKIN_SPREAD, SKIN_SPREAD),
+        size: random(SKIN_DOT_SIZE_MIN, SKIN_DOT_SIZE_MAX),
+      });
+    }
+  }
+
+  return skinDots;
+}
+
+
+// -----------------------------------------
+// 스킨 그리기
+// -----------------------------------------
+
+function drawSkin(instance) {
+  noStroke();
+  fill(0, 180);   // 두번째 숫자는 Alpha 값
+
+  for (const dot of instance.skinDots) {
+    const spring = instance.physicsSprings[dot.springIndex];
+
+    const pointA = instance.physicsPoints[spring.a];
+    const pointB = instance.physicsPoints[spring.b];
+
+    // 현재 뼈대 선의 방향
+    const dx = pointB.x - pointA.x;
+    const dy = pointB.y - pointA.y;
+    const length = Math.max(0.0001, Math.hypot(dx, dy));
+
+    // 뼈대에 수직인 방향
+    const normalX = -dy / length;
+    const normalY = dx / length;
+
+    // 현재 뼈대를 기준으로 스킨 점 위치 계산
+    const x =
+      lerp(pointA.x, pointB.x, dot.t) +
+      normalX * dot.offset;
+
+    const y =
+      lerp(pointA.y, pointB.y, dot.t) +
+      normalY * dot.offset;
+
+    circle(x, y, dot.size);
+  }
+}
+
+
+// -----------------------------------------
+// 호버 관절점
+// -----------------------------------------
+
+function drawJamoHandles(instance) {
+  const connectorIndices = new Set(instance.connectorPointIndices);
+
+  for (let i = 0; i < instance.physicsPoints.length; i++) {
+    const point = instance.physicsPoints[i];
+
+    if (!point.isJoint) {
+      continue;
+    }
+
+    // connector는 바깥 원으로 구분
+    if (connectorIndices.has(i)) {
+      noFill();
+      stroke(0);
+      strokeWeight(1);
+      circle(point.x, point.y, HOVER_CONNECTOR_SIZE);
+    }
+
+    // 기본 관절점
+    fill(255);
+    stroke(0);
+    strokeWeight(1);
+    circle(point.x, point.y, HOVER_JOINT_SIZE);
+  }
+}
 
 // -----------------------------------------
 // 자모 그리기
@@ -1306,15 +1478,21 @@ function updateJamoPhysics(instance, instanceIndex) {
 // -----------------------------------------
 
 // JAMO의 nodes와 Point Count를 실제 물리점과 스프링으로 변환
-function createPhysicsStructure(jamoType, offsetX, offsetY, pointCount) {
-  const jamo = JAMO[jamoType];
+  function createPhysicsStructure(jamoType, offsetX, offsetY, pointCount) {
+    const jamo = JAMO[jamoType];
 
-  const physicsPoints = [];
-  const physicsSprings = [];
+    const spacingScale = POINT_SPACING / BASE_POINT_SPACING;
+
+    const nodes = jamo.nodes.map((node) => ({
+      x: JAMO_CENTER + (node.x - JAMO_CENTER) * spacingScale,
+      y: JAMO_CENTER + (node.y - JAMO_CENTER) * spacingScale,
+    }));
+
+    const physicsPoints = [];
+    const physicsSprings = [];
 
   // 기본 관절 생성
-  const jointPointIndices = jamo.nodes.map((node, nodeIndex) => {
-    const pointIndex = physicsPoints.length;
+    const jointPointIndices = nodes.map((node, nodeIndex) => {    const pointIndex = physicsPoints.length;
 
     physicsPoints.push({
       x: node.x + offsetX,
@@ -1333,8 +1511,8 @@ function createPhysicsStructure(jamoType, offsetX, offsetY, pointCount) {
     const startNodeIndex = edge[0];
     const endNodeIndex = edge[1];
 
-    const startNode = jamo.nodes[startNodeIndex];
-    const endNode = jamo.nodes[endNodeIndex];
+    const startNode = nodes[startNodeIndex];
+    const endNode = nodes[endNodeIndex];
 
     let previousPointIndex = jointPointIndices[startNodeIndex];
 
@@ -1571,6 +1749,51 @@ function updatePointCursor() {
 
 
 // -----------------------------------------
+// 자모 호버 감지
+// -----------------------------------------
+
+function updateHoveredJamo() {
+  hoveredJamoIndex = null;
+  const hoverRadius = SKIN_SPREAD + SKIN_DOT_SIZE_MAX / 2;
+
+  for (let i = jamoInstances.length - 1; i >= 0; i--) {
+    const instance = jamoInstances[i];
+
+    for (const spring of instance.physicsSprings) {
+      const a = instance.physicsPoints[spring.a];
+      const b = instance.physicsPoints[spring.b];
+
+      if (getDistanceToSegment(mouseX, mouseY, a.x, a.y, b.x, b.y) <= hoverRadius) {
+        hoveredJamoIndex = i;
+        return;
+      }
+    }
+  }
+}
+
+function getDistanceToSegment(px, py, x1, y1, x2, y2) {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const lengthSquared = dx * dx + dy * dy;
+
+  if (lengthSquared === 0) {
+    return Math.hypot(px - x1, py - y1);
+  }
+
+  const t = constrain(
+    ((px - x1) * dx + (py - y1) * dy) / lengthSquared,
+    0,
+    1
+  );
+
+  return Math.hypot(
+    px - (x1 + dx * t),
+    py - (y1 + dy * t)
+  );
+}
+
+
+// -----------------------------------------
 // 점 선택
 // -----------------------------------------
 
@@ -1705,12 +1928,17 @@ function generateJamosFromInput() {
       pointCount
     );
 
+    const skinDots = createSkinDots(
+      physics.physicsSprings
+    );
+
     jamoInstances.push({
       type: jamo.type,
       syllableId: jamo.syllableId,
       physicsPoints: physics.physicsPoints,
       physicsSprings: physics.physicsSprings,
       connectorPointIndices: physics.connectorPointIndices,
+      skinDots,
     });
   }
 }
