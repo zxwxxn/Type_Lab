@@ -61,7 +61,7 @@ const MAX_POINT_SPEED = 20;
 // -----------------------------------------
 
 // 이 거리 안에서 같은 음절의 connector가 서로 끌림
-const MAGNET_RADIUS = 100;
+const MAGNET_RADIUS = 80;
 
 // 자석 힘의 세기
 const MAGNET_FORCE = 0.2;
@@ -84,11 +84,11 @@ const SKIN_DOT_MIN = 10;
 const SKIN_DOT_MAX = 18;
 
 // 스킨 점 크기 범위
-const SKIN_DOT_SIZE_MIN = 5;
-const SKIN_DOT_SIZE_MAX = 16;
+const SKIN_DOT_SIZE_MIN =7;
+const SKIN_DOT_SIZE_MAX = 25;
 
 // 뼈대 중심에서 퍼질 수 있는 거리
-const SKIN_SPREAD = 14;
+const SKIN_SPREAD = 15;
 
 
 // -----------------------------------------
@@ -1151,6 +1151,9 @@ let pointCountSlider;
 let textInput;
 let generateButton;
 
+// 현재 생성된 개체의 스킨 색
+let currentSkinColor;
+
 
 // =====================================================
 // 5. SETUP
@@ -1163,13 +1166,13 @@ function setup() {
   canvas.position(PAGE_MARGIN, PAGE_MARGIN);
 
   // 각 edge 사이에 추가할 물리점 개수
-  pointCountSlider = createSlider(0, 10, 2, 1);
+  pointCountSlider = createSlider(0, 8, 1, 1);
 
   // Point Count 변경 시 현재 글자를 새 물리구조로 다시 생성
   pointCountSlider.changed(generateJamosFromInput);
 
   // 한글 입력창
-  textInput = createInput("가");
+  textInput = createInput("");
   textInput.size(130);
 
   // Enter 키도 생성 버튼과 같은 기능
@@ -1187,7 +1190,7 @@ function setup() {
   positionControls();
 
   // 처음 한 번 자모 생성
-  generateJamosFromInput();
+  // generateJamosFromInput();
 }
 
 
@@ -1286,6 +1289,12 @@ function createSkinDots(physicsSprings) {
         t,
         offset: random(-SKIN_SPREAD, SKIN_SPREAD),
         size: random(SKIN_DOT_SIZE_MIN, SKIN_DOT_SIZE_MAX),
+
+        // 점마다 조금씩 다른 시간에 나타나도록 설정
+        startTime: millis() + random(0, 500),
+
+        // 점마다 자라는 속도에 차이를 줌
+        growthDuration: random(300, 700),
       });
     }
   }
@@ -1300,7 +1309,7 @@ function createSkinDots(physicsSprings) {
 
 function drawSkin(instance) {
   noStroke();
-  fill(0, 180);   // 두번째 숫자는 Alpha 값
+  fill(0, 220);   // 두번째 숫자는 Alpha 값
 
   for (const dot of instance.skinDots) {
     const spring = instance.physicsSprings[dot.springIndex];
@@ -1326,7 +1335,22 @@ function drawSkin(instance) {
       lerp(pointA.y, pointB.y, dot.t) +
       normalY * dot.offset;
 
-    circle(x, y, dot.size);
+    // 각 점의 성장 진행도
+    const growth = constrain(
+      (millis() - dot.startTime) / dot.growthDuration,
+      0,
+      1
+    );
+
+    // 살짝 부풀었다가 원래 크기로 돌아오도록 성장
+    const overshoot = 3;
+
+    const easedGrowth =
+      1 +
+      (overshoot + 1) * Math.pow(growth - 1, 3) +
+      overshoot * Math.pow(growth - 1, 2);
+
+    circle(x, y, dot.size * easedGrowth);
   }
 }
 
@@ -1883,6 +1907,13 @@ function mouseReleased() {
 function generateJamosFromInput() {
   const inputText = textInput.value().trim();
   const pointCount = pointCountSlider.value();
+
+  // 이번에 생성되는 개체의 스킨 색
+  currentSkinColor = color(
+    random(60, 220),
+    random(60, 220),
+    random(60, 220)
+  );
 
   // 기존 자모와 드래그 상태 초기화
   jamoInstances = [];
