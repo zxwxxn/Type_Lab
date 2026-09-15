@@ -20,30 +20,318 @@ canvas {
   display: block;
 }
 
+#title-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0);
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.5s ease, visibility 0.5s ease;
+}
+
+.title-overlay-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 60px;
+  transform: translateY(0);
+  transition: transform 0.5s ease;
+}
+
+.title-image {
+  display: block;
+  width: min(420px, 72vw);
+  height: auto;
+}
+
+#start-button {
+  width: 300px;
+  height: 54px;
+  border: 1px dashed #555;
+  padding: 0;
+  background: rgba(255, 255, 255, 0.7);
+  color: #202020;
+  font-size: 14px;
+  letter-spacing: 0.22em;
+  cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease;
+}
+
+#start-button:hover,
+#start-button:focus-visible {
+  background: #202020;
+  color: #fff;
+  outline: none;
+}
+
+/* Keep the title and button comfortably inside narrow screens. */
+@media (max-width: 520px) {
+  .title-overlay-content {
+    gap: 44px;
+  }
+
+  #start-button {
+    width: min(300px, 72vw);
+  }
+}
+
+.title-overlay-content h1 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 400;
+  letter-spacing: 0.28em;
+  white-space: nowrap;
+}
+
+#title-overlay.is-dismissed {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+#title-overlay.is-dismissed .title-overlay-content {
+  transform: translateY(-12px);
+}
+
+#release-success-text {
+  position: fixed;
+  inset: 0;
+  z-index: 1040;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.12s ease, visibility 0.12s ease;
+}
+
+#release-success-text.is-visible {
+  opacity: 1;
+  visibility: visible;
+}
+
+.release-success-column {
+  position: absolute;
+  top: -8px;
+  height: calc(100% + 16px);
+  overflow: hidden;
+  color: #ff6666;
+  font-size: 18px;
+  line-height: 1.72;
+  letter-spacing: 0.14em;
+  writing-mode: vertical-rl;
+  text-orientation: upright;
+  animation: release-success-blink 0.62s steps(2, end) infinite;
+}
+
+.release-success-column-left {
+  left: 26px;
+}
+
+.release-success-column-right {
+  right: 26px;
+}
+
+@keyframes release-success-blink {
+  0%,
+  48% {
+    opacity: 1;
+  }
+
+  49%,
+  100% {
+    opacity: 0.16;
+  }
+}
+
+#release-result {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 1050;
+  display: flex;
+  width: 280px;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  transform: translate(-50%, -50%) scale(0.96);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s ease;
+}
+
+#release-result.is-visible {
+  transform: translate(-50%, -50%) scale(1);
+  opacity: 1;
+  visibility: visible;
+}
+
+.release-result-image-frame {
+  display: grid;
+  width: 166px;
+  height: 166px;
+  place-items: center;
+  overflow: hidden;
+  background: #d9d9d9;
+}
+
+#release-result-image {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.release-result-line {
+  width: 220px;
+  border-top: 1px dashed #555;
+}
+
+.release-result-label {
+  font-size: 14px;
+  letter-spacing: 0.22em;
+}
+
+@media (max-width: 520px) {
+  #release-result {
+    width: 80vw;
+  }
+}
+
 #xenotype-panel {
   position: fixed;
   top: 40px;
   left: 29px;
   z-index: 900;
+
   width: 260px;
+
   font-family: "Noto Sans Mono", monospace;
   font-size: 11px;
   line-height: 1.45;
   letter-spacing: 0;
+
+  /* 패널 전체는 마우스를 방해하지 않음 */
   pointer-events: none;
 }
 
 .xenotype-title {
-  margin-left: 90px;
+  margin-left: 0;
   margin-bottom: 6px;
+  white-space: nowrap;
+  text-align: center;
+  width: 258px;
 }
 
 .xenotype-rule {
   width: 258px;
-  border-top: 1px dashed #333;
   height: 4px;
+
+  border-top: 1px dashed #333;
 }
 
+.xenotype-note {
+  width: 258px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* "새 blob 배양하기" */
+.xenotype-input-title {
+  margin-top: 3px;
+  margin-bottom: 4px;
+}
+
+/* -----------------------------------
+   입력창 전체의 별 모양 사각 프레임
+   ----------------------------------- */
+
+.xenotype-input-frame {
+  position: absolute;
+
+  left: 0;
+  top: 78px;
+
+  width: 258px;
+  height: 32px;
+
+  box-sizing: border-box;
+
+  pointer-events: none;
+}
+
+/* 위쪽 / 아래쪽 별 */
+.xenotype-input-frame::before,
+.xenotype-input-frame::after {
+  position: absolute;
+
+  left: 0;
+
+  width: 258px;
+
+  overflow: hidden;
+
+  color: #333;
+
+  font-family: "Noto Sans Mono", monospace;
+  font-size: 9px;
+  line-height: 9px;
+
+  letter-spacing: 0;
+  white-space: nowrap;
+
+  content: "* * * * * * * * * * * * * * * * * * * * * * * *";
+}
+
+.xenotype-input-frame::before {
+  top: -5px;
+}
+
+.xenotype-input-frame::after {
+  bottom: -5px;
+}
+
+/* 왼쪽 / 오른쪽 별 */
+.xenotype-input-inner::before,
+.xenotype-input-inner::after {
+  position: absolute;
+
+  top: 0;
+
+  height: 32px;
+
+  color: #333;
+
+  font-family: "Noto Sans Mono", monospace;
+  font-size: 9px;
+  line-height: 9px;
+
+  white-space: pre-wrap;
+
+  content: "*\A*\A*\A*";
+}
+
+.xenotype-input-inner::before {
+  left: -1px;
+}
+
+.xenotype-input-inner::after {
+  right: -1px;
+}
+
+/* 정보 영역 */
+.xenotype-info {
+  margin-top: 57px;
+}
+
+.xenotype-info > div {
+  height: 18px;
+  white-space: nowrap;
+}
+
+/* Zoom */
 .xenotype-zoom-title {
   margin-top: 7px;
   white-space: nowrap;
@@ -54,17 +342,84 @@ canvas {
   margin-left: 52px;
   white-space: nowrap;
 }
+/* Zoom 조절선 */
+.xenotype-zoom-slider {
+  appearance: none;
+  -webkit-appearance: none;
 
-.xenotype-zoom-value span {
-  color: #777;
+  width: 116px;
+  height: 10px;
+
+  margin: 0;
+  padding: 0;
+
+  background: transparent;
+
+  cursor: pointer;
+
+  pointer-events: auto;
 }
 
-.xenotype-zoom-value strong {
-  display: inline-block;
-  min-width: 30px;
-  color: #202020;
-  font-weight: 400;
-  text-align: center;
+/* Chrome / Edge의 점선 */
+.xenotype-zoom-slider::-webkit-slider-runnable-track {
+  width: 116px;
+  height: 1px;
+
+  background: repeating-linear-gradient(
+    to right,
+    #777 0px,
+    #777 3px,
+    transparent 3px,
+    transparent 5px
+  );
+}
+
+/* Chrome / Edge의 동그라미 */
+.xenotype-zoom-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+
+  width: 7px;
+  height: 7px;
+
+  margin-top: -3px;
+
+  border: 1px solid #777;
+  border-radius: 50%;
+
+  background: #fff;
+
+  cursor: grab;
+}
+
+.xenotype-zoom-slider::-webkit-slider-thumb:active {
+  cursor: grabbing;
+}
+
+/* Firefox */
+.xenotype-zoom-slider::-moz-range-track {
+  width: 116px;
+  height: 1px;
+
+  background: repeating-linear-gradient(
+    to right,
+    #777 0px,
+    #777 3px,
+    transparent 3px,
+    transparent 5px
+  );
+}
+
+.xenotype-zoom-slider::-moz-range-thumb {
+  width: 7px;
+  height: 7px;
+
+  border: 1px solid #777;
+  border-radius: 50%;
+
+  background: #fff;
+
+  cursor: grab;
 }
 
 #release-button {
@@ -97,4 +452,200 @@ canvas {
 
 #release-button:active {
   transform: scale(0.98);
+}
+/* XENOTYPE 안의 실제 입력 컨트롤만 클릭 가능 */
+.xenotype-input-control,
+.xenotype-generate-control {
+  pointer-events: auto;
+  position: fixed;
+
+  z-index: 901;
+}
+
+/* 실제 입력창 */
+.xenotype-input-control {
+  width: 198px;
+  height: 24px;
+
+  box-sizing: border-box;
+
+  border: none;
+  outline: none;
+
+  padding: 0 4px;
+
+  background: transparent;
+
+  color: #202020;
+
+  font-family: "Noto Sans Mono", monospace;
+  font-size: 11px;
+}
+
+/* 생성 버튼 */
+.xenotype-generate-control {
+  width: 48px;
+  height: 24px;
+
+  border: none;
+  padding: 0;
+
+  background: transparent;
+
+  color: #202020;
+
+  font-family: "Noto Sans Mono", monospace;
+  font-size: 11px;
+
+  cursor: pointer;
+}
+
+.xenotype-generate-control:hover {
+  text-decoration: underline;
+}
+
+/* 입력창의 커서 */
+.xenotype-input-control {
+  caret-color: #202020;
+}
+/* =====================================================
+   INVENTORY
+   ===================================================== */
+
+#inventory-panel {
+  position: fixed;
+  left: 29px;
+
+  /* Zoom UI 아래쪽 */
+  top: 310px;
+
+  width: 258px;
+
+  font-family: "Noto Sans Mono", monospace;
+  font-size: 11px;
+  line-height: 1.4;
+
+  z-index: 950;
+
+  background: transparent;
+}
+
+.inventory-top,
+.inventory-bottom {
+  width: 258px;
+  white-space: nowrap;
+  overflow: hidden;
+
+  letter-spacing: 0;
+  box-sizing: border-box;
+}
+
+.inventory-header {
+  position: relative;
+
+  width: 100%;
+  height: 24px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  box-sizing: border-box;
+}
+
+.inventory-header span {
+  white-space: nowrap;
+}
+
+#inventory-toggle {
+  border: none;
+  background: transparent;
+
+  font-family: "Noto Sans Mono", monospace;
+  font-size: 11px;
+
+  padding: 0;
+  margin: 0;
+
+  cursor: pointer;
+  color: #000;
+}
+
+.inventory-content {
+  width: 100%;
+  height: 55px;
+
+  overflow: hidden;
+
+  box-sizing: border-box;
+
+  padding: 5px 10px;
+
+  display: none;
+}
+
+#inventory-grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(3, 1fr);
+
+  gap: 6px;
+
+  width: 100%;
+}
+
+.inventory-item {
+  width: 72px;
+  height: 58px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  box-sizing: border-box;
+}
+
+.inventory-item img {
+  max-width: 100%;
+  max-height: 100%;
+
+  width: auto;
+  height: auto;
+
+  object-fit: contain;
+
+  display: block;
+}
+
+/* 펼쳐진 상태 */
+#inventory-panel.is-expanded .inventory-content {
+  display: block;
+
+  height: calc(100vh - 380px);
+
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+#inventory-panel.is-expanded {
+  max-height: calc(100vh - 285px);
+}
+
+/* 스크롤바도 최대한 얇게 */
+#inventory-panel.is-expanded .inventory-content::-webkit-scrollbar {
+  width: 5px;
+}
+
+#inventory-panel.is-expanded .inventory-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+#inventory-panel.is-expanded .inventory-content::-webkit-scrollbar-thumb {
+  background: #999;
+}
+
+/* 펼쳐졌을 때 아래쪽 - 선은 계속 보이게 */
+#inventory-panel.is-expanded .inventory-bottom {
+  display: block;
 }

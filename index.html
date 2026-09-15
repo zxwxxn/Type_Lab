@@ -4,9 +4,73 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Hangul Organism</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Mono:wght@400;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <section id="title-overlay" aria-label="시작 화면">
+    <div class="title-overlay-content">
+      <img class="title-image" src="타이틀.png" alt="blob 실험이지">
+      <button id="start-button" type="button">시작하기</button>
+    </div>
+  </section>
+
+  <section id="release-success-text" aria-hidden="true">
+    <div class="release-success-column release-success-column-left">성 공 한! 성 공 한! 성 공 한! 성 공 한!</div>
+    <div class="release-success-column release-success-column-right">성 공 한! 성 공 한! 성 공 한! 성 공 한!</div>
+  </section>
+
+  <section id="release-result" aria-live="polite" aria-label="풀어주기 결과">
+    <div class="release-result-line"></div>
+    <div class="release-result-image-frame">
+      <img id="release-result-image" alt="방금 편집한 글자">
+    </div>
+    <div class="release-result-line"></div>
+    <div class="release-result-label">성공한!</div>
+    <div class="release-result-line"></div>
+  </section>
+
+  <section id="xenotype-panel" aria-label="Xenotype information">
+    <div class="xenotype-title">
+  b&nbsp;&nbsp;&nbsp;&nbsp;L&nbsp;ㅇ&nbsp;&nbsp;b&nbsp;실&nbsp;&nbsp;험&nbsp;&nbsp;일&nbsp;&nbsp;지
+</div>
+    <div class="xenotype-rule"></div>
+    <div class="xenotype-note">-최대 10마리까지 배양 가능합니다.-</div>
+
+<div class="xenotype-rule"></div>
+
+<div class="xenotype-input-title">새 blob 배양하기</div>
+
+<div class="xenotype-input-frame">
+  <div class="xenotype-input-inner"></div>
+</div>
+
+<div class="xenotype-info">
+  <div>01. Name: <span id="xenotype-name"></span></div>
+  <div>02. Date: <span id="xenotype-date"></span></div>
+  <div>03. Type: <span id="xenotype-type"></span></div>
+  <div>04. Venue: <span id="xenotype-venue"></span></div>
+</div>
+    <div class="xenotype-zoom-title">*************** Z o o m ***************</div>
+<div class="xenotype-zoom-value">
+  <span class="zoom-in-label">in</span>
+
+  <input
+    id="zoom-slider"
+    class="xenotype-zoom-slider"
+    type="range"
+    min="0.45"
+    max="2.6"
+    step="0.01"
+    value="1"
+    aria-label="Zoom"
+  >
+
+  <span class="zoom-out-label">out</span>
+</div>  </section>
+
   <div id="controls">
     <div class="control-group">
       <div id="point-control"></div>
@@ -16,5 +80,28 @@
 
   <script src="https://cdn.jsdelivr.net/npm/p5@1.11.11/lib/p5.min.js"></script>
   <script src="sketch.js"></script>
+
+  <!-- INVENTORY -->
+  <div id="inventory-panel">
+
+    <div class="inventory-top">
+        ----------------------------------------
+    </div>
+
+    <div class="inventory-header">
+        <span>ㅣ n v e n tㅇry</span>
+        <button id="inventory-toggle">▼</button>
+    </div>
+
+    <div class="inventory-content">
+        <div id="inventory-grid"></div>
+    </div>
+
+    <div class="inventory-bottom">
+        ----------------------------------------
+    </div>
+
+</div>
+  
 </body>
 </html>

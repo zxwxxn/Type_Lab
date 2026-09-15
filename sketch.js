@@ -8,7 +8,7 @@
 const PAGE_MARGIN = 24;
 
 // 캔버스 아래 입력 UI가 들어갈 공간
-const CONTROL_AREA_HEIGHT = 110;
+const CONTROL_AREA_HEIGHT = 0;
 
 // -----------------------------------------
 // 점 크기 / 마우스 선택 범위
@@ -113,25 +113,27 @@ let activeGraphicSkin = 1;
 const GRAPHIC_SKIN_POINT = 1;
 const GRAPHIC_SKIN_Y = 2;
 const GRAPHIC_SKIN_IMAGE = 3;
-const SKIN3_IMAGE_PATH = "스킨3.png";
-const SKIN3_IMAGE_FALLBACK_PATH = "skin3.png";
+const GRAPHIC_SKIN_IMAGE_LAST = 7;
+const SKIN_IMAGE_PATHS = {
+  3: "스킨3.png",
+  4: "스킨4.png",
+  5: "스킨5.png",
+  6: "스킨6.png",
+  7: "스킨7.png",
+};
 
-let skin3Image = null;
+let skinImages = {};
 
 function preload() {
-  skin3Image = loadImage(
-    SKIN3_IMAGE_PATH,
-    () => {},
-    () => {
-      skin3Image = loadImage(
-        SKIN3_IMAGE_FALLBACK_PATH,
-        () => {},
-        () => {
-          skin3Image = null;
-        }
-      );
-    }
-  );
+  for (const [skinNumber, imagePath] of Object.entries(SKIN_IMAGE_PATHS)) {
+    skinImages[skinNumber] = loadImage(imagePath, () => {}, () => {
+      skinImages[skinNumber] = null;
+    });
+  }
+}
+
+function getActiveSkinImage() {
+  return skinImages[activeGraphicSkin] || null;
 }
 
 function isConsonantJamo(type) {
@@ -1135,12 +1137,28 @@ let pointCountSlider;
 let textInput;
 let generateButton;
 let releaseButton;
+let zoomSlider;
+
+let xenotypeName;
+let xenotypeDate;
+let xenotypeType;
+let xenotypeVenue;
+
 let isEditingLocked = false;
 let pendingRegenerate = false;
 let releaseButtonState = 1;
 let releasedGroups = [];
+
+// 인벤토리
+let inventoryItems = [];
+const INVENTORY_STORAGE_KEY = "hangul-organism-inventory";
+
+
+// 배경 개체 자동 리셋 기준
+const MAX_RELEASED_GROUPS = 30;
 const PERSISTENCE_KEY = "hangul-organism-state";
 let lastPersistenceSave = 0;
+let releaseResultTimeout;
 
 function setReleaseButtonState(state) {
   releaseButtonState = state;
@@ -1154,8 +1172,127 @@ function setReleaseButtonState(state) {
 // 5. SETUP
 // 페이지가 시작될 때 한 번만 실행
 // =====================================================
+// =====================================================
+// INVENTORY
+// 풀어주기로 얻은 글자 이미지를 영구 저장
+// =====================================================
 
+function loadInventory() {
+  try {
+    const savedInventory =
+      localStorage.getItem(INVENTORY_STORAGE_KEY);
+
+    if (!savedInventory) {
+      inventoryItems = [];
+      return;
+    }
+
+    const parsed =
+      JSON.parse(savedInventory);
+
+    inventoryItems =
+      Array.isArray(parsed)
+        ? parsed
+        : [];
+
+  } catch (error) {
+    console.warn(
+      '인벤토리를 불러올 수 없습니다.',
+      error
+    );
+
+    inventoryItems = [];
+  }
+}
+function saveInventory() {
+  try {
+    localStorage.setItem(
+      INVENTORY_STORAGE_KEY,
+      JSON.stringify(inventoryItems)
+    );
+  } catch (error) {
+    console.warn(
+      '인벤토리를 저장할 수 없습니다.',
+      error
+    );
+  }
+}
+function addInventoryItem(imageData) {
+  if (!imageData) return;
+
+  inventoryItems.push({
+    id: Date.now() + "-" + Math.random(),
+    image: imageData,
+  });
+
+  saveInventory();
+  renderInventory();
+}
+function renderInventory() {
+  const grid =
+    document.getElementById('inventory-grid');
+
+  if (!grid) return;
+
+  grid.innerHTML = '';
+
+  for (const item of inventoryItems) {
+
+    const itemElement =
+      document.createElement('div');
+
+    itemElement.className =
+      'inventory-item';
+
+    const image =
+      document.createElement('img');
+
+    image.src = item.image;
+
+    itemElement.appendChild(image);
+
+    grid.appendChild(itemElement);
+  }
+}
+function setupInventoryToggle() {
+  const panel =
+    document.getElementById('inventory-panel');
+
+  const toggle =
+    document.getElementById('inventory-toggle');
+
+  if (!panel || !toggle) return;
+
+  toggle.addEventListener('click', () => {
+
+    const isExpanded =
+      panel.classList.toggle('is-expanded');
+
+    toggle.textContent =
+      isExpanded ? '▲' : '▼';
+  });
+}
 function setup() {
+
+  loadInventory();
+  renderInventory();
+  setupInventoryToggle();
+
+  xenotypeName = document.getElementById('xenotype-name');
+  xenotypeDate = document.getElementById('xenotype-date');
+  xenotypeType = document.getElementById('xenotype-type');
+  xenotypeVenue = document.getElementById('xenotype-venue');
+
+  const titleOverlay = document.getElementById('title-overlay');
+  const startButton = document.getElementById('start-button');
+  startButton.addEventListener('click', () => {
+  titleOverlay.classList.add('is-dismissed');
+
+  // 시작 화면을 닫으면 바로 입력창에 커서를 둔다.
+  setTimeout(() => {
+    textInput.elt.focus();
+  }, 550);
+});
 
   // 브라우저 크기에 맞춰 캔버스를 만든다.
   canvas =
@@ -1193,7 +1330,11 @@ function setup() {
   textInput =
     createInput('');
 
-  textInput.size(130);
+  textInput.size(198, 24);
+  
+  // 최대 10글자까지만 입력 가능
+  textInput.elt.maxLength = 10;
+
   textInput.input(() => {
     if (isEditingLocked) {
       pendingRegenerate = true;
@@ -1205,6 +1346,9 @@ function setup() {
     event.preventDefault();
     if (isEditingLocked && !pendingRegenerate) return;
     generateJamosFromInput();
+    setTimeout(() => {
+      textInput.elt.focus();
+    }, 0);
   });
 
 
@@ -1213,27 +1357,316 @@ function setup() {
     createButton('생성');
 
   generateButton.mousePressed(() => {
-    if (isEditingLocked && !pendingRegenerate) return;
-    generateJamosFromInput();
-  });
+  if (isEditingLocked && !pendingRegenerate) return;
+
+  generateJamosFromInput();
+
+  // 생성 후에도 입력창에 커서를 유지한다.
+  setTimeout(() => {
+    textInput.elt.focus();
+  }, 0);
+});
 
   releaseButton = createButton('풀어주기');
   releaseButton.id('release-button');
   setReleaseButtonState(releaseButtonState);
   releaseButton.mousePressed(() => {
-    releaseCurrentJamos();
-    textInput.value('');
-    setReleaseButtonState(1);
-    savePersistentState(true);
-  });
+  showReleaseResult();
+  releaseCurrentJamos();
+  textInput.value('');
+  setReleaseButtonState(1);
+  savePersistentState(true);
+
+  setTimeout(() => {
+    textInput.elt.focus();
+  }, 0);
+});
 
 
   // UI 위치 정리
+
   positionControls();
 
-  restorePersistentState();
-  window.addEventListener('beforeunload', () => savePersistentState(true));
+  // -----------------------------------------
+  // Zoom 슬라이더
+  // -----------------------------------------
+  zoomSlider = document.getElementById('zoom-slider');
 
+  zoomSlider.addEventListener('input', () => {
+
+  // 슬라이더 왼쪽(in) = 확대
+  // 슬라이더 오른쪽(out) = 축소
+  const sliderValue = Number(zoomSlider.value);
+
+  zoom = MAX_ZOOM - sliderValue + MIN_ZOOM;
+
+  zoom = constrain(
+    zoom,
+    MIN_ZOOM,
+    MAX_ZOOM
+  );
+
+  savePersistentState(true);
+});
+
+  restorePersistentState();
+
+  syncZoomSlider();
+
+  window.addEventListener('beforeunload', () => savePersistentState(true));
+}
+function updateXenotypeInfo(inputText, generatedJamos, skinNumber) {
+  if (!xenotypeName || !xenotypeDate || !xenotypeType || !xenotypeVenue) {
+    return;
+  }
+
+  // -----------------------------
+  // 01. Name
+  // -----------------------------
+  xenotypeName.textContent = inputText;
+
+  // -----------------------------
+  // 02. Date
+  // -----------------------------
+  const now = new Date();
+
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+
+  xenotypeDate.textContent =
+    `${year}.${month}.${day} ${hours}:${minutes}`;
+
+  // -----------------------------
+  // 03. Type
+  // -----------------------------
+  const skinNames = {
+    1: 'Skin 1',
+    2: 'Skin 2',
+    3: 'Skin 3',
+    4: 'Skin 4',
+    5: 'Skin 5',
+    6: 'Skin 6',
+    7: 'Skin 7',
+  };
+
+  xenotypeType.textContent =
+    skinNames[skinNumber] || `Skin ${skinNumber}`;
+
+  // -----------------------------
+  // 04. Venue
+  // 화면에서 글자가 생성된 중심 좌표
+  // -----------------------------
+  if (generatedJamos.length > 0) {
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+
+    for (const jamo of generatedJamos) {
+      for (const point of jamo.physicsPoints) {
+        const screenPoint = worldToScreen(point.x, point.y);
+
+        minX = Math.min(minX, screenPoint.x);
+        minY = Math.min(minY, screenPoint.y);
+        maxX = Math.max(maxX, screenPoint.x);
+        maxY = Math.max(maxY, screenPoint.y);
+      }
+    }
+
+    const centerX = Math.round((minX + maxX) / 2);
+    const centerY = Math.round((minY + maxY) / 2);
+
+    xenotypeVenue.textContent =
+      `x: ${centerX}, y: ${centerY}`;
+  }
+}
+function showReleaseResult() {
+  if (isEditingLocked || jamoInstances.length === 0) return;
+
+  const result = document.getElementById('release-result');
+  const resultImage = document.getElementById('release-result-image');
+  const preview = createEditedPreviewImage();
+
+  if (!preview) return;
+
+  // ★ 풀어주기 결과 이미지를 인벤토리에 저장
+  addInventoryItem(preview);
+
+  const successText = document.getElementById('release-success-text');
+  resultImage.src = preview;
+  successText.classList.add('is-visible');
+  result.classList.add('is-visible');
+  clearTimeout(releaseResultTimeout);
+  releaseResultTimeout = setTimeout(() => {
+  successText.classList.remove('is-visible');
+  result.classList.remove('is-visible');
+
+  // 풀어주기 결과창이 사라질 때
+  // 왼쪽 정보도 같이 지운다.
+  if (xenotypeName) xenotypeName.textContent = '';
+  if (xenotypeDate) xenotypeDate.textContent = '';
+  if (xenotypeType) xenotypeType.textContent = '';
+  if (xenotypeVenue) xenotypeVenue.textContent = '';
+}, 2000);
+}
+
+function createEditedPreviewImage() {
+  if (!canvas || !canvas.elt || jamoInstances.length === 0) return null;
+
+  const bounds = getEditedPreviewBounds();
+  if (!bounds) return null;
+
+  const previewCanvas = document.createElement('canvas');
+  previewCanvas.width = bounds.width;
+  previewCanvas.height = bounds.height;
+
+  const previewContext = previewCanvas.getContext('2d');
+  const toPreview = (x, y) => ({
+    x: width / 2 + (x - cameraX) * zoom - bounds.x,
+    y: height / 2 + (y - cameraY) * zoom - bounds.y,
+  });
+
+  for (const instance of jamoInstances) {
+    const instanceIndex = jamoInstances.indexOf(instance);
+    const graphicCloud = generatedGraphicClouds.get(instance) || [];
+    for (const point of graphicCloud) {
+      const style = getGraphicPointStyle(point, instanceIndex, instance.type);
+      const previewPoint = toPreview(point.x, point.y);
+      previewContext.fillStyle = `rgba(${style.r}, ${style.g}, ${style.b}, ${Math.max(0.35, point.alpha / 255)})`;
+      previewContext.beginPath();
+      previewContext.arc(
+        previewPoint.x,
+        previewPoint.y,
+        Math.max(2, style.size * zoom * 0.5),
+        0,
+        TWO_PI
+      );
+      previewContext.fill();
+    }
+
+    const sprouts = generatedYSprouts.get(instance) || [];
+    for (const sprout of sprouts) {
+      const cosine = Math.cos(sprout.rotation);
+      const sine = Math.sin(sprout.rotation);
+      previewContext.strokeStyle = `rgba(0, 0, 0, ${sprout.alpha / 255})`;
+
+      for (const segment of sprout.segments) {
+        const startX = segment.x1 * cosine - segment.y1 * sine;
+        const startY = segment.x1 * sine + segment.y1 * cosine;
+        const endX = segment.x2 * cosine - segment.y2 * sine;
+        const endY = segment.x2 * sine + segment.y2 * cosine;
+        const start = toPreview(sprout.x + startX, sprout.y + startY);
+        const end = toPreview(sprout.x + endX, sprout.y + endY);
+        previewContext.lineWidth = Math.max(1, segment.width * sprout.strokeScale * zoom);
+        previewContext.beginPath();
+        previewContext.moveTo(start.x, start.y);
+        previewContext.lineTo(end.x, end.y);
+        previewContext.stroke();
+      }
+    }
+
+    const sprites = generatedSkin3Sprites.get(instance) || [];
+    for (const sprite of sprites) {
+      const previewPoint = toPreview(sprite.x, sprite.y);
+      const size = sprite.size * zoom;
+      previewContext.save();
+      previewContext.translate(previewPoint.x, previewPoint.y);
+      previewContext.rotate(sprite.rotation);
+      previewContext.globalAlpha = sprite.alpha / 255;
+      const activeSkinImage = getActiveSkinImage();
+      if (activeSkinImage && activeSkinImage.canvas) {
+        previewContext.drawImage(activeSkinImage.canvas, -size / 2, -size / 2, size, size);
+      } else {
+        previewContext.fillStyle = '#be0000';
+        previewContext.beginPath();
+        previewContext.arc(0, 0, size * 0.36, 0, TWO_PI);
+        previewContext.fill();
+      }
+      previewContext.restore();
+    }
+
+    const eyes = generatedEyes.get(instance) || [];
+    for (const eye of eyes) {
+      const previewPoint = toPreview(eye.x, eye.y);
+      const radius = eye.size * zoom * 0.5;
+      previewContext.fillStyle = 'rgba(155, 160, 166, 0.8)';
+      previewContext.beginPath();
+      previewContext.arc(previewPoint.x + radius * 0.08, previewPoint.y + radius * 0.1, radius * 1.04, 0, TWO_PI);
+      previewContext.fill();
+      previewContext.fillStyle = '#e1e1e1';
+      previewContext.beginPath();
+      previewContext.arc(previewPoint.x, previewPoint.y, radius, 0, TWO_PI);
+      previewContext.fill();
+      previewContext.fillStyle = '#000';
+      previewContext.beginPath();
+      previewContext.arc(previewPoint.x, previewPoint.y, radius * eye.pupilRatio, 0, TWO_PI);
+      previewContext.fill();
+    }
+  }
+
+  return previewCanvas.toDataURL('image/png');
+}
+
+function getEditedPreviewBounds() {
+  const points = [];
+  const addPoint = (x, y, padding = 0) => {
+    points.push({ x: x - padding, y: y - padding });
+    points.push({ x: x + padding, y: y + padding });
+  };
+  const toScreen = (x, y) => ({
+    x: width / 2 + (x - cameraX) * zoom,
+    y: height / 2 + (y - cameraY) * zoom,
+  });
+
+  for (const instance of jamoInstances) {
+    for (const point of instance.physicsPoints) {
+      const screenPoint = toScreen(point.x, point.y);
+      addPoint(screenPoint.x, screenPoint.y, JOINT_SIZE * zoom);
+    }
+
+    const graphicCloud = generatedGraphicClouds.get(instance) || [];
+    for (const point of graphicCloud) {
+      const screenPoint = toScreen(point.x, point.y);
+      addPoint(screenPoint.x, screenPoint.y, point.size * zoom * 0.5);
+    }
+
+    const sprouts = generatedYSprouts.get(instance) || [];
+    for (const sprout of sprouts) {
+      const screenPoint = toScreen(sprout.x, sprout.y);
+      addPoint(screenPoint.x, screenPoint.y, 30 * zoom);
+    }
+
+    const sprites = generatedSkin3Sprites.get(instance) || [];
+    for (const sprite of sprites) {
+      const screenPoint = toScreen(sprite.x, sprite.y);
+      addPoint(screenPoint.x, screenPoint.y, sprite.size * zoom * 0.5);
+    }
+
+    const eyes = generatedEyes.get(instance) || [];
+    for (const eye of eyes) {
+      const screenPoint = toScreen(eye.x, eye.y);
+      addPoint(screenPoint.x, screenPoint.y, eye.size * zoom * 0.5);
+    }
+  }
+
+  if (points.length === 0) return null;
+
+  const padding = 8;
+  const minX = Math.max(0, Math.floor(Math.min(...points.map((point) => point.x)) - padding));
+  const minY = Math.max(0, Math.floor(Math.min(...points.map((point) => point.y)) - padding));
+  const maxX = Math.min(width, Math.ceil(Math.max(...points.map((point) => point.x)) + padding));
+  const maxY = Math.min(height, Math.ceil(Math.max(...points.map((point) => point.y)) + padding));
+
+  return {
+    x: minX,
+    y: minY,
+    width: Math.max(1, maxX - minX),
+    height: Math.max(1, maxY - minY),
+  };
 }
 
 function getPersistentState() {
@@ -1350,11 +1783,11 @@ function restorePersistentState() {
     activeGraphicSkin = state.activeGraphicSkin || GRAPHIC_SKIN_POINT;
     isEditingLocked = !!state.isEditingLocked;
     pendingRegenerate = !!state.pendingRegenerate;
+    jamoInstances = Array.isArray(state.jamoInstances) ? state.jamoInstances : [];
     releaseButtonState = [1, 2, 3].includes(state.releaseButtonState)
       ? state.releaseButtonState
-      : (isEditingLocked ? 1 : 2);
+      : (isEditingLocked ? 1 : (jamoInstances.length > 0 ? 2 : 1));
     setReleaseButtonState(releaseButtonState);
-    jamoInstances = Array.isArray(state.jamoInstances) ? state.jamoInstances : [];
     magneticBonds = Array.isArray(state.magneticBonds) ? state.magneticBonds : [];
     releasedGroups = Array.isArray(state.releasedGroups) ? state.releasedGroups : [];
     for (const group of releasedGroups) {
@@ -1364,6 +1797,7 @@ function restorePersistentState() {
       group.ySprouts = Array.isArray(group.ySprouts) ? group.ySprouts : [];
       group.skin3Sprites = Array.isArray(group.skin3Sprites) ? group.skin3Sprites : [];
       group.eyes = Array.isArray(group.eyes) ? group.eyes : [];
+      group.skin = Number.isFinite(group.skin) ? group.skin : GRAPHIC_SKIN_POINT;
     }
 
     pointCountSlider.value(state.pointCount ?? 2);
@@ -1407,7 +1841,11 @@ function restorePersistentState() {
     localStorage.removeItem(PERSISTENCE_KEY);
   }
 }
-
+function checkAutoReset() {
+  if (releasedGroups.length >= MAX_RELEASED_GROUPS) {
+    resetWorkspace();
+  }
+}
 function resetWorkspace() {
   jamoInstances = [];
   releasedGroups = [];
@@ -1424,6 +1862,7 @@ function resetWorkspace() {
   cameraX = 0;
   cameraY = 0;
   zoom = 1;
+  syncZoomSlider();
   textInput.value('');
   pointCountSlider.value(2);
   savePersistentState(true);
@@ -1435,33 +1874,49 @@ function keyPressed() {
     return false;
   }
 }
+function syncZoomSlider() {
+  if (!zoomSlider) return;
 
+  zoomSlider.value = MAX_ZOOM - zoom + MIN_ZOOM;
+}
 // 캔버스 아래 가운데에
 // 슬라이더 / 입력창 / 생성 버튼을 배치한다.
 function positionControls() {
 
+  // -----------------------------------------
+  // 왼쪽 상단 XENOTYPE 입력창
+  // -----------------------------------------
+
+  const panelLeft = 29;
+  const panelTop = 40;
+
+  // 별 모양 프레임 안쪽
+  textInput.position(
+    panelLeft + 8,
+    panelTop + 80
+  );
+
+  generateButton.position(
+    panelLeft + 207,
+    panelTop + 80
+  );
+
+  // 입력창과 생성 버튼의 스타일용 class
+  textInput.class('xenotype-input-control');
+  generateButton.class('xenotype-generate-control');
+
+
+  // -----------------------------------------
+  // Point Count 슬라이더는 기존 위치 유지
+  // -----------------------------------------
+
   const centerX =
     PAGE_MARGIN + width / 2;
 
-  const controlTop =
-    PAGE_MARGIN + height;
-
-
+   // 화면 맨 아래에서 35px 위에 슬라이더 배치
   pointCountSlider.position(
     centerX - 90,
-    controlTop + 18
-  );
-
-
-  textInput.position(
-    centerX - 105,
-    controlTop + 52
-  );
-
-
-  generateButton.position(
-    centerX + 45,
-    controlTop + 52
+    windowHeight - 35
   );
 }
 
@@ -1491,6 +1946,8 @@ function mouseWheel(event) {
   if (nextZoom === zoom) return false;
 
   zoom = nextZoom;
+
+  syncZoomSlider();
 
   cameraX = worldBefore.x - (mouseX - width / 2) / zoom;
   cameraY = worldBefore.y - (mouseY - height / 2) / zoom;
@@ -2059,11 +2516,6 @@ function updateMagneticJoints() {
 
 function draw() {
   background(255);
-
-  const zoomLevel = document.getElementById('zoom-level');
-  if (zoomLevel) {
-    zoomLevel.textContent = zoom.toFixed(2);
-  }
 
   for (let i = 0; i < jamoInstances.length; i++) {
     const instance = jamoInstances[i];
@@ -2731,7 +3183,7 @@ function drawReleasedGroups() {
     }
 
     drawYSprouts(group.ySprouts, true);
-    drawSkin3Sprites(group.skin3Sprites);
+    drawSkin3Sprites(group.skin3Sprites, group.skin);
     drawEyes(group.eyes);
 
     pop();
@@ -2817,6 +3269,7 @@ function releaseCurrentJamos() {
   };
 
   releasedGroups.push(group);
+  checkAutoReset();
 
   jamoInstances = [];
   magneticBonds = [];
@@ -2828,6 +3281,7 @@ function releaseCurrentJamos() {
   isEditingLocked = true;
   pendingRegenerate = false;
   savePersistentState(true);
+  checkAutoReset();
 }
 
 // =====================================================
@@ -2850,7 +3304,7 @@ function generateJamosFromInput() {
   generatedYSprouts = new Map();
   generatedSkin3Sprites = new Map();
   generatedEyes = new Map();
-  activeGraphicSkin = Math.floor(random(GRAPHIC_SKIN_POINT, GRAPHIC_SKIN_IMAGE + 1));
+  activeGraphicSkin = Math.floor(random(GRAPHIC_SKIN_POINT, GRAPHIC_SKIN_IMAGE_LAST + 1));
 
   const generatedJamos = [];
 
@@ -2913,7 +3367,7 @@ function generateJamosFromInput() {
       generatedYSprouts.set(instance, createGeneratedYSprouts(instance));
     }
 
-    if (activeGraphicSkin === GRAPHIC_SKIN_IMAGE && isGeneratedGraphicJamo(jamoType)) {
+    if (activeGraphicSkin >= GRAPHIC_SKIN_IMAGE && isGeneratedGraphicJamo(jamoType)) {
       generatedSkin3Sprites.set(instance, createGeneratedSkin3Sprites(instance));
     }
 
@@ -2923,6 +3377,11 @@ function generateJamosFromInput() {
   isEditingLocked = false;
   pendingRegenerate = false;
   setReleaseButtonState(2);
+  updateXenotypeInfo(
+  inputText,
+  jamoInstances,
+  activeGraphicSkin
+);
   savePersistentState(true);
 }
 
@@ -3428,11 +3887,11 @@ function updateGeneratedSkin3Sprites() {
 
 function drawGeneratedSkin3Sprites() {
   for (const sprites of generatedSkin3Sprites.values()) {
-    drawSkin3Sprites(sprites);
+    drawSkin3Sprites(sprites, activeGraphicSkin);
   }
 }
 
-function drawSkin3Sprites(sprites) {
+function drawSkin3Sprites(sprites, skinNumber = activeGraphicSkin) {
   if (!sprites) return;
 
   imageMode(CENTER);
@@ -3451,9 +3910,10 @@ function drawSkin3Sprites(sprites) {
     translate(sprite.x, sprite.y);
     rotate(sprite.rotation);
 
-    if (skin3Image) {
+    const skinImage = skinImages[skinNumber] || null;
+    if (skinImage) {
       tint(255, sprite.alpha * progress);
-      image(skin3Image, 0, 0, size, size);
+      image(skinImage, 0, 0, size, size);
       noTint();
     } else {
       fill(190, 0, 0, sprite.alpha * progress);
