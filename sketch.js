@@ -263,6 +263,9 @@ const SHOW_SKELETON = false;
 // 프레임 가이드를 화면에 보여줄지 여부
 let SHOW_FRAMES = false;
 
+// 방출 작업 영역 가이드를 화면에 보여줄지 여부
+const SHOW_CULTURE_AREA = false;
+
 // -----------------------------------------
 // 반응형 캔버스 크기
 // -----------------------------------------
@@ -1437,6 +1440,9 @@ let inventoryItems = [];
 // 브라우저에 인벤토리를 저장할 IndexedDB
 let inventoryDatabasePromise = null;
 
+// 방출 개체를 마지막으로 저장한 시간
+let lastReleasedSaveAt = 0;
+
 // 현재 마우스가 올라가 있는 자모
 // 없으면 null
 let hoveredJamoIndex = null;
@@ -1454,6 +1460,11 @@ let typeButton;
 // 현재 생성된 개체의 스킨 색
 let currentSkinColor;
 
+// 현재 배양 중인 개체의 나이
+let organismBornAt = null;
+let organismAge = 0;
+let organismAgeRunning = false;
+
 // -----------------------------------------
 // 풀어준 개체 설정
 // -----------------------------------------
@@ -1464,8 +1475,11 @@ const RELEASE_TRANSITION_MAX_DURATION = 5000;
 // 방출 직후 작업 영역에서 벗어날 때 확보할 거리
 const RELEASE_ESCAPE_GAP = 100;
 
-// 방출 중에만 평소보다 빠르게 움직이는 배율
-const RELEASE_ESCAPE_FORCE_MULTIPLIER = 12;
+// 방출 직후 바깥쪽으로 방향을 유도하는 정도
+const RELEASE_ESCAPE_STEER = 0.15;
+
+// 방출 직후 이동 속도 배율
+const RELEASE_ESCAPE_SPEED = 3;
 
 // 화면에 돌아다닐 수 있는 최대 개체 수
 const MAX_RELEASED_ORGANISMS = 20;
@@ -1480,21 +1494,25 @@ const RELEASED_MIN_GAP = 20;
 const RELEASED_SEPARATION_FORCE = 0.08;
 
 // 풀어준 개체가 계속 이동하려는 힘
-const RELEASED_MOVE_FORCE_MIN = 0.05;
-const RELEASED_MOVE_FORCE_MAX = 0.08;
+const RELEASED_MOVE_FORCE_MIN = 0.08;
+const RELEASED_MOVE_FORCE_MAX = 0.12;
 
 // 개체가 활동하는 전체 공간 크기
 // 3 = 현재 화면 가로·세로의 각각 3배
-const RELEASED_WORLD_SCALE = 3;
+const RELEASED_WORLD_SCALE = 5;
 
 // 가장자리에서 안쪽으로 밀어주는 힘 배율
 const RELEASED_EDGE_FORCE = 4;
 
-// 방향이 변화하는 흐름의 속도
-const RELEASED_TURN_SPEED = 0.01;
+// 새 이동 방향을 선택하는 시간 범위
+const RELEASED_DIRECTION_INTERVAL_MIN = 1000;
+const RELEASED_DIRECTION_INTERVAL_MAX = 3000;
 
-// 방향을 꺾는 정도
-const RELEASED_TURN_AMOUNT = 0.08;
+// 새 방향으로 부드럽게 회전하는 정도
+const RELEASED_DIRECTION_EASING = 0.04;
+
+// 이동 방향을 따라 몸의 축이 회전하는 속도
+const RELEASED_BODY_TURN_EASING = 0.02;
 
 // 풀어준 개체의 유기적인 뼈대 움직임
 const RELEASED_MOVE_SCALE = 0.25;
@@ -1641,6 +1659,9 @@ function setup() {
 
   // 브라우저에 저장된 인벤토리 불러오기
   loadInventoryItems();
+
+  // 브라우저에 저장된 방출 개체 불러오기
+  loadReleasedOrganisms();
 }
 
 // -----------------------------------------
@@ -1706,59 +1727,6 @@ function openInventoryDatabase() {
     return inventoryDatabasePromise;
   }
 
-  // -----------------------------------------
-  // 인벤토리 저장
-  // 현재 인벤토리 전체를 브라우저에 저장
-  // -----------------------------------------
-
-  async function saveInventoryItems() {
-    const database =
-      await openInventoryDatabase();
-
-    const transaction =
-      database.transaction(
-        "inventory",
-        "readwrite"
-      );
-
-    const store =
-      transaction.objectStore("inventory");
-
-    store.put(
-      inventoryItems,
-      "items"
-    );
-  }
-
-  // -----------------------------------------
-  // 인벤토리 불러오기
-  // 브라우저에 저장된 개체를 다시 가져옴
-  // -----------------------------------------
-
-  async function loadInventoryItems() {
-    const database =
-      await openInventoryDatabase();
-
-    const transaction =
-      database.transaction(
-        "inventory",
-        "readonly"
-      );
-
-    const store =
-      transaction.objectStore("inventory");
-
-    const request =
-      store.get("items");
-
-    request.onsuccess = function() {
-      inventoryItems =
-        request.result ?? [];
-
-      renderInventoryItems();
-    };
-  }
-
   inventoryDatabasePromise = new Promise((resolve, reject) => {
     const request =
       indexedDB.open("typeLabInventory", 1);
@@ -1781,6 +1749,193 @@ function openInventoryDatabase() {
   });
 
   return inventoryDatabasePromise;
+}
+
+// -----------------------------------------
+// 인벤토리 저장
+// 현재 인벤토리 전체를 브라우저에 저장
+// -----------------------------------------
+
+async function saveInventoryItems() {
+  const database =
+    await openInventoryDatabase();
+
+  const transaction =
+    database.transaction(
+      "inventory",
+      "readwrite"
+    );
+
+  const store =
+    transaction.objectStore("inventory");
+
+  store.put(
+    inventoryItems,
+    "items"
+  );
+}
+
+// -----------------------------------------
+// 방출된 개체 저장
+// 새로고침 후에도 배경 개체를 유지
+// -----------------------------------------
+
+async function saveReleasedOrganisms() {
+  const database =
+    await openInventoryDatabase();
+
+  const transaction =
+    database.transaction(
+      "inventory",
+      "readwrite"
+    );
+
+  const store =
+    transaction.objectStore("inventory");
+
+  const releasedData =
+    releasedOrganisms.map((organism) => ({
+      jamos: organism.jamos,
+
+      lockedConnectorPairs:
+        organism.lockedConnectorPairs,
+
+      skin: organism.skin,
+
+      releasedAt:
+        organism.releasedAt,
+
+      isEscaping:
+        organism.isEscaping,
+
+      moveAngle:
+        organism.moveAngle,
+
+      previousMoveAngle:
+        organism.previousMoveAngle,
+
+      bodyRotation:
+        organism.bodyRotation,
+
+      targetBodyRotation:
+        organism.targetBodyRotation,
+
+      targetMoveAngle:
+        organism.targetMoveAngle,
+
+      moveForce:
+        organism.moveForce
+    }));
+
+  store.put(
+    releasedData,
+    "releasedOrganisms"
+  );
+}
+
+// -----------------------------------------
+// 인벤토리 불러오기
+// 브라우저에 저장된 개체를 다시 가져옴
+// -----------------------------------------
+
+async function loadInventoryItems() {
+  const database =
+    await openInventoryDatabase();
+
+  const transaction =
+    database.transaction(
+      "inventory",
+      "readonly"
+    );
+
+  const store =
+    transaction.objectStore("inventory");
+
+  const request =
+    store.get("items");
+
+  request.onsuccess = function() {
+    inventoryItems =
+      request.result ?? [];
+
+    renderInventoryItems();
+  };
+}
+
+// -----------------------------------------
+// 방출된 개체 불러오기
+// 새로고침 후 저장된 위치에서 다시 움직임
+// -----------------------------------------
+
+async function loadReleasedOrganisms() {
+  const database =
+    await openInventoryDatabase();
+
+  const transaction =
+    database.transaction(
+      "inventory",
+      "readonly"
+    );
+
+  const store =
+    transaction.objectStore("inventory");
+
+  const request =
+    store.get("releasedOrganisms");
+
+  request.onsuccess = function() {
+    const savedOrganisms =
+      request.result ?? [];
+
+    const now =
+      millis();
+
+    for (const organism of savedOrganisms) {
+      // 방향 전환 시간만 현재 시간 기준으로 다시 시작
+      organism.nextDirectionChangeAt =
+        now +
+        random(
+          RELEASED_DIRECTION_INTERVAL_MIN,
+          RELEASED_DIRECTION_INTERVAL_MAX
+        );
+
+      organism.previousMoveAngle =
+        organism.moveAngle;
+
+      for (const jamo of organism.jamos) {
+        // DOT는 이미 성장한 상태로 복원
+        for (const dot of jamo.skinDots ?? []) {
+          dot.startTime =
+            now - dot.growthDuration;
+        }
+
+        // GRADIENT도 이미 성장한 상태로 복원
+        for (const dot of jamo.gradientDots ?? []) {
+          dot.startTime =
+            now - dot.growthDuration;
+        }
+
+        // 눈도 이미 성장한 상태로 복원
+        for (const eye of jamo.eyes ?? []) {
+          eye.startTime =
+            now - EYE_GROW_DURATION;
+
+          eye.blinkStartTime =
+            -1;
+
+          eye.nextBlinkTime =
+            now +
+            random(
+              EYE_BLINK_INTERVAL_MIN,
+              EYE_BLINK_INTERVAL_MAX
+            );
+        }
+      }
+    }
+
+    releasedOrganisms =
+      savedOrganisms;
+  };
 }
 
 // -----------------------------------------
@@ -1907,6 +2062,9 @@ releasePreviewEye =
     ? previewEyes[0]
     : null;
 
+  const initialMoveAngle =
+    random(TWO_PI);
+
   // 현재 개체 저장
   const releasedOrganism = {
     jamos: jamoInstances,
@@ -1921,8 +2079,28 @@ releasePreviewEye =
     // 배양 영역에서 빠져나가는 중인지
     isEscaping: true,
 
-    // 배경에서 이동할 방향
-    moveAngle: random(TWO_PI),
+    // 현재 이동 방향
+    moveAngle: initialMoveAngle,
+
+    // 직전 프레임의 이동 방향
+    previousMoveAngle: initialMoveAngle,
+
+    // 몸이 현재까지 실제로 회전한 양
+    bodyRotation: 0,
+
+    // 이동 방향 변화에 따라 몸이 돌아가야 할 목표 회전량
+    targetBodyRotation: 0,
+
+    // 앞으로 향할 목표 방향
+    targetMoveAngle: initialMoveAngle,
+
+    // 다음 방향을 새로 선택할 시간
+    nextDirectionChangeAt:
+      millis() +
+      random(
+        RELEASED_DIRECTION_INTERVAL_MIN,
+        RELEASED_DIRECTION_INTERVAL_MAX
+      ),
 
     // 개체마다 조금씩 다른 이동 힘
     moveForce: random(
@@ -1937,6 +2115,10 @@ releasePreviewEye =
     if (releasedOrganisms.length > MAX_RELEASED_ORGANISMS) {
       releasedOrganisms.shift();
     }
+
+    // 방출 직후 현재 개체 목록 바로 저장
+    saveReleasedOrganisms();
+    lastReleasedSaveAt = millis();
 
     // 현재 배양 중인 개체 비우기
     jamoInstances = [];
@@ -1968,11 +2150,11 @@ const frames = [
   { name: "초성",         x: -165, y: -180, w: 140, h: 140 },
   { name: "중성(세로)",   x: 45,   y: -200, w: 120, h: 200 },
   { name: "중성(가로)",   x: -155, y: -30,  w: 160, h: 80 },
-  { name: "종성(세로형)", x: -45,  y: 60,   w: 140, h: 140 },
+  { name: "종성(세로형)", x: -45,  y: 50,   w: 140, h: 140 },
 
   // 가로형 모임꼴
   { name: "가로형 초성", x: -70, y: -190, w: 140, h: 140 },
-  { name: "가로형 중성", x: -80, y: -40,  w: 160, h: 80 },
+  { name: "가로형 중성", x: -80, y: -50,  w: 160, h: 80 },
   { name: "가로형 종성", x: -70, y: 50,   w: 140, h: 140 }
 ];
 
@@ -2001,49 +2183,31 @@ const frames = [
   // -----------------------------------------
 
   function getCultureArea() {
-    const inputText = textInput.value().trim();
-    const syllableCenters =
-      inputText.length > 0
-        ? getSyllableCenters(inputText)
-        : [width / 2];
+    // 배양 영역 중심 위치
+    const offsetX = 0;
+    const offsetY = 20;
 
-    const frameMinX =
-      Math.min(...frames.map(frame => frame.x));
+    const centerX = width / 2 + offsetX;
+    const centerY = getCultureCenterY() + offsetY;
 
-    const frameMaxX =
-      Math.max(...frames.map(frame => frame.x + frame.w));
-
-    const frameMinY =
-      Math.min(...frames.map(frame => frame.y));
-
-    const frameMaxY =
-      Math.max(...frames.map(frame => frame.y + frame.h));
+    // 배양 영역 크기
+    const radiusX = 500;
+    const radiusY = 280;
 
     return {
-      minX:
-        Math.min(...syllableCenters) +
-        frameMinX -
-        RELEASE_ESCAPE_GAP,
+      centerX,
+      centerY,
+      radiusX,
+      radiusY,
 
-      maxX:
-        Math.max(...syllableCenters) +
-        frameMaxX +
-        RELEASE_ESCAPE_GAP,
-
-      minY:
-        height / 2 +
-        SYLLABLE_Y_OFFSET +
-        frameMinY -
-        RELEASE_ESCAPE_GAP,
-
-      maxY:
-        height / 2 +
-        SYLLABLE_Y_OFFSET +
-        frameMaxY +
-        RELEASE_ESCAPE_GAP
+      // 인벤토리 캡처용 범위
+      minX: centerX - radiusX,
+      maxX: centerX + radiusX,
+      minY: centerY - radiusY,
+      maxY: centerY + radiusY
     };
   }
-  
+    
 
   // -----------------------------------------
   // 스킨 관리자
@@ -2099,6 +2263,25 @@ const frames = [
   function draw() {
     background(255);
 
+  // 방출 작업 영역 확인용 가이드
+  if (SHOW_CULTURE_AREA) {
+    const cultureArea = getCultureArea();
+
+    push();
+    noFill();
+    stroke(255, 0, 0);
+    strokeWeight(2);
+
+    ellipse(
+      cultureArea.centerX,
+      cultureArea.centerY,
+      cultureArea.radiusX * 2,
+      cultureArea.radiusY * 2
+    );
+
+    pop();
+  }
+
   // 방출 전환 상태 업데이트
   updateReleaseTransition();
 
@@ -2146,6 +2329,18 @@ const frames = [
         drawJamo(instance);
       }
     }
+  }
+
+  // 풀어준 개체끼리 겹치지 않도록 밀어내기
+  applyReleasedSeparation();
+
+  // 방출 개체의 현재 위치를 3초마다 저장
+  if (
+    releasedOrganisms.length > 0 &&
+    millis() - lastReleasedSaveAt >= 3000
+  ) {
+    saveReleasedOrganisms();
+    lastReleasedSaveAt = millis();
   }
 
   // BLOB 스킨이면 별도 레이어를 생성해 화면에 표시
@@ -2854,6 +3049,182 @@ function updateJamoPhysics(instance, instanceIndex) {
 
 
 // -----------------------------------------
+// 풀어준 개체의 충돌 범위 계산
+// 개체 전체를 하나의 원으로 단순하게 처리
+// -----------------------------------------
+
+function getReleasedCollisionCircle(organism) {
+  const points = [];
+
+  for (const jamo of organism.jamos) {
+    points.push(...jamo.physicsPoints);
+  }
+
+  if (points.length === 0) {
+    return null;
+  }
+
+  const minX =
+    Math.min(...points.map(point => point.x));
+
+  const maxX =
+    Math.max(...points.map(point => point.x));
+
+  const minY =
+    Math.min(...points.map(point => point.y));
+
+  const maxY =
+    Math.max(...points.map(point => point.y));
+
+  // 개체가 차지하는 실제 범위의 가운데
+  const centerX =
+    (minX + maxX) / 2;
+
+  const centerY =
+    (minY + maxY) / 2;
+
+  // 중심에서 가장 먼 뼈대점까지의 거리
+  let radius = 0;
+
+  for (const point of points) {
+    radius =
+      Math.max(
+        radius,
+        Math.hypot(
+          point.x - centerX,
+          point.y - centerY
+        )
+      );
+  }
+
+  // 스킨이 뼈대 바깥으로 퍼지는 범위
+  let skinMargin = 0;
+
+  if (organism.skin === SKINS.DOT) {
+    skinMargin =
+      SKIN_SPREAD +
+      18 +
+      SKIN_DOT_SIZE_MAX / 2 +
+      6;
+  }
+
+  if (organism.skin === SKINS.GRADIENT) {
+    skinMargin =
+      SKIN_SPREAD +
+      18 +
+      GRADIENT_DOT_SIZE_MAX / 2 +
+      6;
+  }
+
+  if (organism.skin === SKINS.BLOB) {
+    skinMargin =
+      BLOB_UNIT_DISTANCE_MAX *
+      BLOB_UNIT_SCALE_MAX *
+      1.8 +
+      BLOB_UNIT_POINT_MAX *
+      BLOB_UNIT_SCALE_MAX *
+      0.6 +
+      BLOB_BLUR;
+  }
+
+  radius += skinMargin;
+
+  return {
+    centerX,
+    centerY,
+    radius
+  };
+}
+
+// -----------------------------------------
+// 풀어준 개체끼리 겹치지 않도록 밀어내기
+// -----------------------------------------
+
+function applyReleasedSeparation() {
+  for (let i = 0; i < releasedOrganisms.length; i++) {
+    for (let j = i + 1; j < releasedOrganisms.length; j++) {
+      const organismA = releasedOrganisms[i];
+      const organismB = releasedOrganisms[j];
+
+      const circleA =
+        getReleasedCollisionCircle(organismA);
+
+      const circleB =
+        getReleasedCollisionCircle(organismB);
+
+      if (!circleA || !circleB) {
+        continue;
+      }
+
+      const dx =
+        circleB.centerX - circleA.centerX;
+
+      const dy =
+        circleB.centerY - circleA.centerY;
+
+      const distance =
+        Math.hypot(dx, dy);
+
+      const minDistance =
+        circleA.radius +
+        circleB.radius +
+        RELEASED_MIN_GAP;
+
+      if (distance >= minDistance) {
+        continue;
+      }
+
+      let directionX;
+      let directionY;
+
+      if (distance < 0.001) {
+        const randomAngle =
+          random(TWO_PI);
+
+        directionX =
+          Math.cos(randomAngle);
+
+        directionY =
+          Math.sin(randomAngle);
+      } else {
+        directionX =
+          dx / distance;
+
+        directionY =
+          dy / distance;
+      }
+
+      const pushStrength =
+        (1 - distance / minDistance) *
+        RELEASED_SEPARATION_FORCE;
+
+      const pushX =
+        directionX *
+        pushStrength;
+
+      const pushY =
+        directionY *
+        pushStrength;
+
+      for (const jamo of organismA.jamos) {
+        for (const point of jamo.physicsPoints) {
+          point.vx -= pushX;
+          point.vy -= pushY;
+        }
+      }
+
+      for (const jamo of organismB.jamos) {
+        for (const point of jamo.physicsPoints) {
+          point.vx += pushX;
+          point.vy += pushY;
+        }
+      }
+    }
+  }
+}
+
+
+// -----------------------------------------
 // 풀어준 개체 이동
 // 기존 물리점에 작은 이동 힘만 추가
 // -----------------------------------------
@@ -2869,17 +3240,6 @@ function applyReleasedMovementForce(organism) {
   if (points.length === 0) {
     return;
   }
-
-  // -----------------------------------------
-  // 불규칙한 방향 전환
-  // 개체마다 서로 다른 흐름으로 방향이 변함
-  // -----------------------------------------
-
-  organism.moveAngle +=
-    (noise(
-      organism.releasedAt * 0.01,
-      frameCount * RELEASED_TURN_SPEED
-    ) - 0.5) * RELEASED_TURN_AMOUNT;
 
   // 현재 개체가 차지하는 화면 범위
   const minX = Math.min(
@@ -2898,76 +3258,123 @@ function applyReleasedMovementForce(organism) {
     ...points.map(point => point.y)
   );
 
+
+  // -----------------------------------------
+// 이동 방향 변경
+// 1~3초마다 새로운 목표 방향을 선택
+// -----------------------------------------
+
+if (organism.isEscaping) {
+  const cultureArea = getCultureArea();
+
+// 방출 개체가 타원형 배양 영역에서 완전히 벗어났는지 확인
+const isOutsideCultureArea =
+  points.every(point => {
+    const normalizedX =
+      (point.x - cultureArea.centerX) /
+      cultureArea.radiusX;
+
+    const normalizedY =
+      (point.y - cultureArea.centerY) /
+      cultureArea.radiusY;
+
+    return (
+      normalizedX * normalizedX +
+      normalizedY * normalizedY >
+      1
+    );
+  });
+
+  if (isOutsideCultureArea) {
+    organism.isEscaping = false;
+  }
+}
+
+if (millis() >= organism.nextDirectionChangeAt) {
+  if (organism.isEscaping) {
+    const cultureArea = getCultureArea();
+
+    const organismCenterX = (minX + maxX) / 2;
+    const organismCenterY = (minY + maxY) / 2;
+
+    const outwardAngle =
+      Math.atan2(
+        organismCenterY - cultureArea.centerY,
+        organismCenterX - cultureArea.centerX
+      );
+
+    // 바깥쪽을 향하되 조금씩 다른 방향으로 이동
+    organism.targetMoveAngle =
+      outwardAngle +
+      random(-PI / 3, PI / 3);
+      
+    // 이전 방향의 관성을 조금 줄여
+    // 새 방향으로 실제 이동 경로도 꺾이게 함
+    for (const point of points) {
+      point.vx *= 0.65;
+      point.vy *= 0.65;
+    }
+
+    // 방출 중에는 비교적 짧은 간격으로 방향 변경
+    organism.nextDirectionChangeAt =
+      millis() +
+      random(800, 1500);
+  } else {
+    // 영역 밖에서는 기존 자유 이동
+    organism.targetMoveAngle =
+      random(TWO_PI);
+
+    organism.nextDirectionChangeAt =
+      millis() +
+      random(
+        RELEASED_DIRECTION_INTERVAL_MIN,
+        RELEASED_DIRECTION_INTERVAL_MAX
+      );
+  }
+}
+
+// 목표 방향으로 갑자기 꺾지 않고 부드럽게 회전
+const angleDifference =
+  Math.atan2(
+    Math.sin(
+      organism.targetMoveAngle -
+      organism.moveAngle
+    ),
+    Math.cos(
+      organism.targetMoveAngle -
+      organism.moveAngle
+    )
+  );
+
+organism.moveAngle +=
+  angleDifference *
+  (
+    organism.isEscaping
+      ? RELEASE_ESCAPE_STEER
+      : RELEASED_DIRECTION_EASING
+  );
+
+
+  // 편집 공간 안에서는 조금 더 빠르게 이동
+  const moveSpeedMultiplier =
+    organism.isEscaping
+      ? RELEASE_ESCAPE_SPEED
+      : 1;
+
   // 기본 이동 방향
   let forceX =
     Math.cos(organism.moveAngle) *
     organism.moveForce *
-    RELEASED_MOVE_SCALE;
+    RELEASED_MOVE_SCALE *
+    moveSpeedMultiplier;
 
   let forceY =
     Math.sin(organism.moveAngle) *
     organism.moveForce *
-    RELEASED_MOVE_SCALE;
+    RELEASED_MOVE_SCALE *
+    moveSpeedMultiplier;
 
-    // -----------------------------------------
-    // 방출 직후 작업 영역에서 빠르게 벗어나기
-    // -----------------------------------------
-
-    if (organism.isEscaping) {
-      const cultureArea = getCultureArea();
-
-      // 방출 개체가 배양 영역과 완전히 떨어졌는지 확인
-      const isOutsideCultureArea =
-        maxX < cultureArea.minX ||
-        minX > cultureArea.maxX ||
-        maxY < cultureArea.minY ||
-        minY > cultureArea.maxY;
-
-      if (isOutsideCultureArea) {
-        // 영역을 벗어나면 평소 이동으로 복귀
-        organism.isEscaping = false;
-      } else {
-        // 개체 중심
-        const organismCenterX = (minX + maxX) / 2;
-        const organismCenterY = (minY + maxY) / 2;
-
-        // 배양 영역 중심
-        const cultureCenterX =
-          (cultureArea.minX + cultureArea.maxX) / 2;
-
-        const cultureCenterY =
-          (cultureArea.minY + cultureArea.maxY) / 2;
-
-        let escapeX = organismCenterX - cultureCenterX;
-        let escapeY = organismCenterY - cultureCenterY;
-
-        let escapeLength =
-          Math.hypot(escapeX, escapeY);
-
-        // 정확히 중앙에 있을 경우 현재 이동 방향 사용
-        if (escapeLength < 0.001) {
-          escapeX = Math.cos(organism.moveAngle);
-          escapeY = Math.sin(organism.moveAngle);
-          escapeLength = 1;
-        }
-
-        // 방출 중에는 바깥 방향으로 빠르게 이동
-        forceX =
-          (escapeX / escapeLength) *
-          organism.moveForce *
-          RELEASED_MOVE_SCALE *
-          RELEASE_ESCAPE_FORCE_MULTIPLIER;
-
-        forceY =
-          (escapeY / escapeLength) *
-          organism.moveForce *
-          RELEASED_MOVE_SCALE *
-          RELEASE_ESCAPE_FORCE_MULTIPLIER;
-
-        organism.moveAngle =
-          Math.atan2(forceY, forceX);
-      }
-    }
+    
 
   // -----------------------------------------
   // 넓은 활동 공간의 경계
@@ -3011,6 +3418,108 @@ function applyReleasedMovementForce(organism) {
   // 실제 적용된 방향을 다음 이동 방향으로 저장
   organism.moveAngle =
     Math.atan2(forceY, forceX);
+
+  // -----------------------------------------
+  // 이동 방향 변화만큼 몸의 축 회전
+  // 전체 이동은 유지하고 내부 뼈대만 따라 회전
+  // -----------------------------------------
+
+  const moveAngleDifference =
+    Math.atan2(
+      Math.sin(
+        organism.moveAngle -
+        organism.previousMoveAngle
+      ),
+      Math.cos(
+        organism.moveAngle -
+        organism.previousMoveAngle
+      )
+    );
+
+  // 이동 방향이 바뀐 만큼 목표 회전량 누적
+  organism.targetBodyRotation +=
+    moveAngleDifference * 0.3;
+
+  // 몸은 목표 회전보다 조금 늦게 따라감
+  const bodyTurn =
+    (organism.targetBodyRotation -
+      organism.bodyRotation) *
+    RELEASED_BODY_TURN_EASING;
+
+  // 개체 전체 중심
+  const bodyCenterX =
+    points.reduce(
+      (sum, point) => sum + point.x,
+      0
+    ) / points.length;
+
+  const bodyCenterY =
+    points.reduce(
+      (sum, point) => sum + point.y,
+      0
+    ) / points.length;
+
+  // 개체 전체의 평균 이동 속도
+  const averageVelocityX =
+    points.reduce(
+      (sum, point) => sum + point.vx,
+      0
+    ) / points.length;
+
+  const averageVelocityY =
+    points.reduce(
+      (sum, point) => sum + point.vy,
+      0
+    ) / points.length;
+
+  const turnCos =
+    Math.cos(bodyTurn);
+
+  const turnSin =
+    Math.sin(bodyTurn);
+
+  for (const point of points) {
+    const dx =
+      point.x - bodyCenterX;
+
+    const dy =
+      point.y - bodyCenterY;
+
+    // 뼈대 위치 회전
+    point.x =
+      bodyCenterX +
+      dx * turnCos -
+      dy * turnSin;
+
+    point.y =
+      bodyCenterY +
+      dx * turnSin +
+      dy * turnCos;
+
+    // 전체 이동 속도는 그대로 두고
+    // 내부 꾸물거림만 몸과 함께 회전
+    const internalVelocityX =
+      point.vx - averageVelocityX;
+
+    const internalVelocityY =
+      point.vy - averageVelocityY;
+
+    point.vx =
+      averageVelocityX +
+      internalVelocityX * turnCos -
+      internalVelocityY * turnSin;
+
+    point.vy =
+      averageVelocityY +
+      internalVelocityX * turnSin +
+      internalVelocityY * turnCos;
+  }
+
+  organism.bodyRotation +=
+    bodyTurn;
+
+  organism.previousMoveAngle =
+    organism.moveAngle;
 
   // -----------------------------------------
   // 약한 전체 이동

@@ -49,13 +49,13 @@
   --ui-font: var(--font-damsso);
 
   /* UI 전체 기본 글자 크기 */
-  --ui-font-size: 15px;
+  --ui-font-size: 13.5px;
 
   /* UI 전체 줄간격 */
   --ui-line-height: 0.9;
 
   /* UI 전체 가로 폭 */
-  --ui-width: 250px;
+  --ui-width: 235px;
 
   /* UI 전체 기본 글자색 + 선 색 */
   --ui-color: #111;
@@ -434,14 +434,14 @@ canvas {
 
 .organism-info {
   /* 입력 UI와 정보 영역 사이 거리 */
-  margin-top: 18px;
+  margin-top: 5px;
   /* 정보들을 세로로 배치 */
   display: flex;
   flex-direction: column;
   /* 각 줄 사이 간격 */
   gap: 10px;
   /* 정보 영역 글자 크기 */
-  font-size: 15px;
+  font-size: var(--ui-font-size);
 }
 
 /* 정보 한 줄 */
@@ -496,16 +496,15 @@ canvas {
 
 /* Zoom 글자 */
 .zoom-title-text {
-  /* 글자 크기 */
-  font-size: 15px;
+  font-size: var(--ui-font-size);
 
   /* 글자 사이 간격 */
-  letter-spacing: 5px;
+  letter-spacing: 3px;
 
   /* Zoom 글자만 위치 조절
      +x = 오른쪽 / -x = 왼쪽
      +y = 아래 / -y = 위 */
-  transform: translate(3px, -4px);
+  transform: translate(1px, -4px);
 }
 
 /* Zoom 양옆 별표 줄 */
@@ -538,7 +537,7 @@ canvas {
 
 /* in / out */
 .zoom-label {
-  flex: 0 0 auto;
+  font-size: var(--ui-font-size);
 
   /* in / out 글자 크기 */
   font-size: 15px;
