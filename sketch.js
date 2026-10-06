@@ -1434,6 +1434,9 @@ const RELEASE_PREVIEW_SPRINGS = [
 // 인벤토리에 저장된 개체들
 let inventoryItems = [];
 
+// 브라우저에 인벤토리를 저장할 IndexedDB
+let inventoryDatabasePromise = null;
+
 // 현재 마우스가 올라가 있는 자모
 // 없으면 null
 let hoveredJamoIndex = null;
@@ -1635,6 +1638,9 @@ function setup() {
 
   // 풀어주기 버튼
   document.getElementById("release-button").addEventListener("click", releaseOrganism);
+
+  // 브라우저에 저장된 인벤토리 불러오기
+  loadInventoryItems();
 }
 
 // -----------------------------------------
@@ -1688,6 +1694,93 @@ function updateReleaseTransition() {
 
     setCultureControlsDisabled(false);
   }
+}
+
+// -----------------------------------------
+// 인벤토리 저장공간 열기
+// 같은 브라우저에서 다시 접속해도 유지
+// -----------------------------------------
+
+function openInventoryDatabase() {
+  if (inventoryDatabasePromise) {
+    return inventoryDatabasePromise;
+  }
+
+  // -----------------------------------------
+  // 인벤토리 저장
+  // 현재 인벤토리 전체를 브라우저에 저장
+  // -----------------------------------------
+
+  async function saveInventoryItems() {
+    const database =
+      await openInventoryDatabase();
+
+    const transaction =
+      database.transaction(
+        "inventory",
+        "readwrite"
+      );
+
+    const store =
+      transaction.objectStore("inventory");
+
+    store.put(
+      inventoryItems,
+      "items"
+    );
+  }
+
+  // -----------------------------------------
+  // 인벤토리 불러오기
+  // 브라우저에 저장된 개체를 다시 가져옴
+  // -----------------------------------------
+
+  async function loadInventoryItems() {
+    const database =
+      await openInventoryDatabase();
+
+    const transaction =
+      database.transaction(
+        "inventory",
+        "readonly"
+      );
+
+    const store =
+      transaction.objectStore("inventory");
+
+    const request =
+      store.get("items");
+
+    request.onsuccess = function() {
+      inventoryItems =
+        request.result ?? [];
+
+      renderInventoryItems();
+    };
+  }
+
+  inventoryDatabasePromise = new Promise((resolve, reject) => {
+    const request =
+      indexedDB.open("typeLabInventory", 1);
+
+    request.onupgradeneeded = function() {
+      const database = request.result;
+
+      if (!database.objectStoreNames.contains("inventory")) {
+        database.createObjectStore("inventory");
+      }
+    };
+
+    request.onsuccess = function() {
+      resolve(request.result);
+    };
+
+    request.onerror = function() {
+      reject(request.error);
+    };
+  });
+
+  return inventoryDatabasePromise;
 }
 
 // -----------------------------------------
@@ -1778,13 +1871,16 @@ function releaseOrganism() {
   inventoryItems.push({
     snapshot,
     skin: ACTIVE_SKIN,
-    savedAt: millis()
+    savedAt: Date.now()
   });
 
   // 최대 저장 개수를 넘으면 가장 오래된 항목 제거
   if (inventoryItems.length > MAX_INVENTORY_ITEMS) {
     inventoryItems.shift();
   }
+
+  // 현재 인벤토리를 브라우저에 저장
+  saveInventoryItems();
 
   renderInventoryItems();
 

@@ -687,7 +687,7 @@ canvas {
 .inventory-control.open .inventory-panel {
   /* 펼쳐지는 목록 높이
      숫자를 키우면 위로 더 길게 펼쳐짐 */
-  height: 300px;
+  height: 500px;
 
   /* 목록이 많아지면 이 영역 안에서만 세로 스크롤 */
   overflow-y: auto;
