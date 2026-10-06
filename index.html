@@ -1,26 +1,140 @@
 <!doctype html>
 <html lang="ko">
   <head>
-    <!-- 문자 인코딩 -->
+    <!-- 한글이 깨지지 않도록 문자 인코딩 설정 -->
     <meta charset="UTF-8" />
 
-    <!-- 화면 크기에 맞게 페이지 표시 -->
+    <!-- 모바일에서도 화면 크기에 맞게 표시 -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
     <!-- 브라우저 탭 제목 -->
-    <title>Hangul Organism</title>
+    <title>ⓑ L (ㅇ) b 실험일지</title>
 
-    <!-- 페이지 스타일 -->
+    <!-- 스타일 파일 연결 -->
     <link rel="stylesheet" href="style.css" />
   </head>
 
+      <!-- =====================================================
+         시작 화면
+         ===================================================== -->
+
+    <div id="intro-screen">
+      <div class="intro-content">
+        <!-- 메인 타이틀 -->
+        <div class="intro-title">
+          <img src="title.png" alt="b L ㅇ b 실험일지" />
+        </div>
+
+        <!-- 시작 버튼 -->
+        <button id="start-button" type="button">Start</button>
+      </div>
+    </div>
+
   <body>
+    <!-- =====================================================
+        조작 UI 전체
+        ===================================================== -->
+
+    <div id="controls">
+      <!-- 한글 입력창 + 생성 버튼 -->
+      <div class="culture-control">
+        <div class="culture-title">새 blob 배양하기</div>
+
+        <div class="culture-box">
+          <div id="text-control" class="text-control"></div>
+        </div>
+      </div>
+
+      <!-- 생성된 개체 정보 -->
+      <div class="organism-info">
+        <div class="info-row">
+          <span class="info-number">01.</span>
+          <span class="info-label">Name</span>
+          <span id="info-name" class="info-value">:</span>
+        </div>
+
+        <div class="info-row">
+          <span class="info-number">02.</span>
+          <span class="info-label">Date</span>
+          <span id="info-date" class="info-value">:</span>
+        </div>
+
+        <div class="info-row">
+          <span class="info-number">03.</span>
+          <span class="info-label">Type</span>
+          <span id="info-type" class="info-value">:</span>
+        </div>
+
+        <div class="info-row">
+          <span class="info-number">04.</span>
+          <span class="info-label">Venue</span>
+          <span id="info-venue" class="info-value">:</span>
+        </div>
+      </div>
+
+      <!-- 화면 확대 / 축소 -->
+      <div class="zoom-control">
+        <div class="zoom-title">
+          <span class="zoom-title-text">Zoom</span>
+        </div>
+
+        <div class="zoom-row">
+          <span class="zoom-label">in</span>
+          <input id="zoom-slider" type="range" min="50" max="150" value="100" />
+          <span class="zoom-label">out</span>
+        </div>
+      </div>
+
+      <!-- Point Count -->
+      <div class="point-control">
+        <span class="point-label">blob 양 늘리기</span>
+        <div id="point-control"></div>
+      </div>
+
+      <!-- Inventory -->
+      <div class="inventory-control">
+        <!-- 펼쳐지는 개체 목록 영역 -->
+        <div id="inventory-panel" class="inventory-panel">
+          <div class="inventory-list"></div>
+        </div>
+
+        <!-- Inventory 열기 / 닫기 -->
+        <button id="inventory-toggle" class="inventory-toggle" type="button">
+          <span class="inventory-title">Inventory</span>
+          <span class="inventory-arrow">▲</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- =====================================================
+    풀어주기 버튼
+    ===================================================== -->
+    <button id="release-button" type="button">
+      <img class="release-default" src="풀어주기_1.png" alt="풀어주기" />
+      <img class="release-hover" src="풀어주기_2.png" alt="" />
+    </button>
+
+    <!-- =====================================================
+     방출 전환 화면
+     풀어주기 직후 잠깐 표시
+     ===================================================== -->
+    <div id="release-transition" hidden>
+      <div class="release-transition-box">
+        <!-- 실제 DOT 스킨 애니메이션이 그려질 영역 -->
+        <canvas id="release-preview-canvas" width="120" height="90"></canvas>
+
+        <div class="release-transition-title">풀어주는 중...</div>
+      </div>
+    </div>
+
+    <!-- =====================================================
+         SCRIPT
+         ===================================================== -->
+
     <!-- p5.js 라이브러리 -->
-    <!-- 캔버스, 그리기, 마우스 인터랙션 등에 사용 -->
     <script src="https://cdn.jsdelivr.net/npm/p5@1.11.11/lib/p5.min.js"></script>
 
-    <!-- 프로젝트 메인 코드 -->
-    <!-- 자모 생성, 물리, 드래그, 결합 등을 처리 -->
+    <!-- 우리 프로젝트 코드 -->
     <script src="sketch.js"></script>
   </body>
 </html>

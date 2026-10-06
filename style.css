@@ -1,20 +1,948 @@
 /* =====================================================
-   1. PAGE
+   LOCAL FONTS
+   컴퓨터에 설치된 서체 불러오기
+   ===================================================== */
+
+/* Onul담소 Regular */
+@font-face {
+  font-family: "Onul담소";
+  src: local("Onul담소 Regular"), local("Onul담소");
+  font-style: normal;
+  font-weight: normal;
+}
+
+/* Onul담소 Bold */
+@font-face {
+  font-family: "Onul담소";
+  src: local("Onul담소 Bold");
+  font-style: normal;
+  font-weight: bold;
+}
+
+/* Onul담소 Heavy */
+@font-face {
+  font-family: "Onul담소 Heavy";
+  src: local("Onul담소 Heavy");
+  font-style: normal;
+  font-weight: normal;
+}
+
+/* Onul삼화고딕 Regular */
+@font-face {
+  font-family: "Onul삼화고딕";
+  src: local("Onul삼화고딕 Regular"), local("Onul삼화고딕");
+  font-style: normal;
+  font-weight: normal;
+}
+
+/* =====================================================
+   0. UI 전체 기본 설정
+   여기 값들을 바꾸면 UI 전체에 공통으로 적용됨
+   ===================================================== */
+
+:root {
+  /* 사용할 서체 */
+  --font-damsso: "Onul담소", sans-serif;
+  --font-samhwa: "Onul삼화고딕", sans-serif;
+
+  /* UI 전체 기본 서체 */
+  --ui-font: var(--font-damsso);
+
+  /* UI 전체 기본 글자 크기 */
+  --ui-font-size: 15px;
+
+  /* UI 전체 줄간격 */
+  --ui-line-height: 0.9;
+
+  /* UI 전체 가로 폭 */
+  --ui-width: 250px;
+
+  /* UI 전체 기본 글자색 + 선 색 */
+  --ui-color: #111;
+
+  /* 시작 화면 타이틀 크기 */
+  --intro-title-size: 32px;
+
+  /* Start 버튼 글자 크기 */
+  --intro-button-size: 13px;
+
+}
+
+
+/* =====================================================
+   1. INTRO SCREEN
+   처음 들어왔을 때 표시되는 시작 화면
+   ===================================================== */
+
+#intro-screen {
+  /* 브라우저 화면 전체를 덮음 */
+  position: fixed;
+  inset: 0;
+
+  /* 기존 캔버스와 UI보다 위에 표시 */
+  z-index: 100;
+
+  /* 가운데 정렬 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  /* 뒤의 화면은 그대로 보이게 함 */
+  background: transparent;
+}
+
+/* 타이틀 + Start 버튼 */
+.intro-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+
+  /* 타이틀 ↔ Start 버튼 사이 거리 */
+  gap: 24px;
+
+  font-family: var(--ui-font);
+  color: var(--ui-color);
+
+
+  /* 타이틀 + Start 버튼 전체 위치 */
+  transform: translateY(-60px);
+}
+
+/* 메인 타이틀 */
+.intro-title {
+  /* 타이틀 크기 */
+  font-size: var(--intro-title-size);
+
+  /* 타이틀 자간 */
+  letter-spacing: 6px;
+}
+
+/* 메인 타이틀 이미지 */
+.intro-title img {
+  display: block;
+  width: 600px;
+  height: auto;
+}
+
+/* Start 버튼 */
+#start-button {
+
+  /* 버튼 크기 */
+  width: 80px;
+  height: 60px;
+
+  /* 글자를 원 정가운데 배치 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 0;
+
+  /* 원 모양 */
+  border: 1px solid var(--ui-color);
+  border-radius: 50%;
+  background: transparent;
+
+  /* 버튼 글자 */
+  font-family: var(--ui-font);
+  font-size: 20px;
+  color: var(--ui-color);
+
+  cursor: pointer;
+}
+
+/* Start 버튼에 마우스를 올렸을 때 */
+#start-button:hover {
+  background: var(--ui-color);
+  color: #fff;
+}
+
+/* Start를 누른 뒤 시작 화면 숨기기 */
+#intro-screen.hidden {
+  display: none;
+}
+
+
+/* =====================================================
+   2. PAGE
    브라우저 기본 여백 제거
    ===================================================== */
 
 html,
 body {
+  /* 브라우저가 기본으로 넣는 바깥 여백 제거 */
   margin: 0;
+
+  /* 브라우저가 기본으로 넣는 안쪽 여백 제거 */
   padding: 0;
 }
 
 
 /* =====================================================
-   2. CANVAS
+   3. CANVAS
    캔버스 표시 방식
    ===================================================== */
 
 canvas {
+  /* 캔버스 아래에 생기는 기본 여백 제거 */
   display: block;
+}
+
+
+/* =====================================================
+   4. CONTROLS
+   조작 UI 전체 위치 / 크기 / 서체
+   ===================================================== */
+
+#controls {
+  /* UI를 화면 위에 자유롭게 배치 */
+  position: absolute;
+
+  /* UI 전체의 위쪽 위치
+     숫자를 키우면 아래로 이동 */
+  top: 30px;
+
+  /* UI 전체의 왼쪽 위치
+     숫자를 키우면 오른쪽으로 이동 */
+  left: 30px;
+
+  /* 캔버스보다 UI가 위에 보이도록 설정 */
+  z-index: 10;
+
+  /* UI 전체 가로 폭
+     위의 --ui-width 값을 사용 */
+  width: var(--ui-width);
+
+  /* UI 전체 서체 */
+  font-family: var(--ui-font);
+
+  /* UI 전체 기본 글자 크기 */
+  font-size: var(--ui-font-size);
+
+  /* UI 전체 기본 줄간격 */
+  line-height: var(--ui-line-height);
+
+  /* UI 전체 기본 색상 */
+  color: var(--ui-color);
+}
+
+
+/* =====================================================
+   5. TEXT CONTROL
+   새 blob 배양 입력창
+   ===================================================== */
+
+/* -----------------------------------------
+   입력 UI 전체
+   ----------------------------------------- */
+
+.culture-control {
+  /* 입력 UI 전체 가로 폭 */
+  width: var(--ui-width);
+}
+
+.culture-title {
+  /* 제목 ↔ 별표 박스 사이 거리 */
+  margin-bottom: 10px;
+
+  /* 제목 글자 크기 */
+  font-size: var(--ui-font-size);
+}
+
+.culture-box {
+  /* 별표 줄 위치의 기준 */
+  position: relative;
+
+  /* 입력창 ↔ 위/아래 별표 사이 거리 */
+  padding: 10px 0;
+}
+
+
+/* -----------------------------------------
+   위 / 아래 별표 줄
+   ----------------------------------------- */
+
+.culture-box::before,
+.culture-box::after {
+  content: "*******************************";
+
+  position: absolute;
+  left: 0;
+  width: 100%;
+
+  overflow: hidden;
+  white-space: nowrap;
+
+  /* 별표 크기 / 간격 */
+  font-family: var(--ui-font);
+  font-size: var(--ui-font-size);
+  letter-spacing: 4px;
+
+  /* 별표 위아래 잘림 방지 */
+  line-height: normal;
+}
+
+/* 위 별표 */
+.culture-box::before {
+  top: 0;
+}
+
+/* 아래 별표 */
+.culture-box::after {
+  bottom: 0;
+}
+
+
+/* -----------------------------------------
+   입력창 + 버튼 배치
+   ★ 여기 값들만 바꾸면 됨
+   ----------------------------------------- */
+
+.text-control {
+  /* 입력창 크기
+    가로 길이는 UI 전체 폭과 같이 변경 */
+  --input-width: var(--ui-width);
+  --input-height: 26px;
+
+  /* 입력창 안 글자 위치
+     -값 = 위 / +값 = 아래 */
+  --input-text-y: -3px;
+
+  /* 입력창 안 글자 좌우 여백 */
+  --input-padding-x: 12px;
+
+  /* 생성 + 타입 버튼 크기 */
+  --button-width: 38px;
+  --button-height: 28px;
+
+  /* 생성 + 타입 버튼 두 개를 함께 이동
+     +x = 오른쪽 / -x = 왼쪽
+     +y = 아래 / -y = 위 */
+  --button-group-x: 20px;
+  --button-group-y: -4px;
+
+  /* 생성 ↔ 타입 버튼 사이 거리 */
+  --button-gap: 10px;
+
+  /* 버튼 글자 크기 */
+  --button-font-size: 12px;
+
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+/* 입력 전 안내 문구 */
+#text-control input::placeholder {
+  /* 글자색 */
+  color: #c6c6c6;
+
+  /* 글자 크기 */
+  font-size: 14px;
+
+  /* 글자 굵기 */
+  font-weight: normal;
+
+  /* 자간 */
+  letter-spacing: 0px;
+
+  /* 투명도 */
+  opacity: 1;
+}
+
+/* 입력창을 클릭하면 안내 문구 숨김 */
+#text-control input:focus::placeholder {
+  opacity: 0;
+}
+
+
+/* -----------------------------------------
+   입력창
+   ----------------------------------------- */
+
+#text-control input {
+  /* 입력창 가로 / 세로 크기 */
+  flex: 0 0 auto;
+  width: var(--input-width);
+  height: var(--input-height);
+  box-sizing: border-box;
+
+  /* 입력 글자 좌우 여백 */
+  padding: 0 var(--input-padding-x);
+
+  /* 입력 글자 세로 위치 */
+  transform: translateY(var(--input-text-y));
+
+  /* 기본 입력창 모양 제거 */
+  border: 0;
+  outline: 0;
+  background: transparent;
+
+  /* 부모의 서체 / 색상 사용 */
+  font: inherit;
+  color: inherit;
+}
+
+
+/* -----------------------------------------
+   생성 + 타입 버튼
+   ----------------------------------------- */
+
+#text-control button {
+  flex: 0 0 auto;
+
+  /* 버튼 크기 */
+  width: var(--button-width);
+  height: var(--button-height);
+
+  /* 버튼 두 개를 함께 이동 */
+  transform: translate(
+    var(--button-group-x),
+    var(--button-group-y)
+  );
+
+  padding: 0;
+
+  /* 버튼 모양 */
+  border: 1px solid var(--ui-color);
+  border-radius: 50%;
+  background: transparent;
+
+  /* 버튼 글자 */
+  font-family: var(--ui-font);
+  font-size: var(--button-font-size);
+  color: inherit;
+
+  cursor: pointer;
+}
+
+/* 생성 ↔ 타입 사이 거리 */
+#text-control button + button {
+  margin-left: var(--button-gap);
+}
+
+/* 버튼에 마우스를 올렸을 때 */
+#text-control button:hover {
+  background: #111;
+  color: #fff;
+}
+
+/* =====================================================
+   6. ORGANISM INFO
+   생성된 개체 정보
+   ===================================================== */
+
+.organism-info {
+  /* 입력 UI와 정보 영역 사이 거리 */
+  margin-top: 18px;
+  /* 정보들을 세로로 배치 */
+  display: flex;
+  flex-direction: column;
+  /* 각 줄 사이 간격 */
+  gap: 10px;
+  /* 정보 영역 글자 크기 */
+  font-size: 15px;
+}
+
+/* 정보 한 줄 */
+.info-row {
+  display: flex;
+  align-items: baseline;
+}
+
+/* 01. / 02. / 03. / 04. */
+.info-number {
+  /* 숫자를 키우면 항목명이 오른쪽으로 이동 */
+  width: 32px;
+  flex: 0 0 auto;
+}
+
+/* Name / Date / Type / Venue */
+.info-label {
+  /* 숫자를 키우면 실제 값이 오른쪽으로 이동 */
+  width: 55px;
+  flex: 0 0 auto;
+}
+
+/* 실제 표시될 값 */
+.info-value {
+  flex: 1;
+}
+
+/* =====================================================
+   7. ZOOM CONTROL
+   화면 확대 / 축소
+   ===================================================== */
+
+.zoom-control {
+  /* 위 정보 영역과 Zoom 전체 사이 거리 */
+  margin-top: 28px;
+  width: 100%;
+}
+
+/* ***** Zoom ***** */
+.zoom-title {
+  display: flex;
+  align-items: center;
+
+  /* 양쪽 별표 줄 ↔ Zoom 글자 사이 거리 */
+  gap: 5px;
+
+  /* Zoom 제목 전체 ↔ 아래 슬라이더 사이 거리 */
+  margin-bottom: 10px;
+
+  white-space: nowrap;
+}
+
+/* Zoom 글자 */
+.zoom-title-text {
+  /* 글자 크기 */
+  font-size: 15px;
+
+  /* 글자 사이 간격 */
+  letter-spacing: 5px;
+
+  /* Zoom 글자만 위치 조절
+     +x = 오른쪽 / -x = 왼쪽
+     +y = 아래 / -y = 위 */
+  transform: translate(3px, -4px);
+}
+
+/* Zoom 양옆 별표 줄 */
+.zoom-title::before,
+.zoom-title::after {
+  content: "************************";
+  flex: 1;
+
+  overflow: hidden;
+  white-space: nowrap;
+
+  /* 별표 크기 */
+  font-size: 15px;
+
+  /* 별표 사이 간격 */
+  letter-spacing: 4px;
+
+  /* 별표 위아래 잘림 방지 */
+  line-height: normal;
+}
+
+/* in / 슬라이더 / out */
+.zoom-row {
+  display: flex;
+  align-items: center;
+
+  /* in/out ↔ 슬라이더 사이 거리 */
+  gap: 8px;
+}
+
+/* in / out */
+.zoom-label {
+  flex: 0 0 auto;
+
+  /* in / out 글자 크기 */
+  font-size: 15px;
+}
+
+/* 슬라이더 전체 */
+#zoom-slider {
+  flex: 1;
+
+  /* 슬라이더 영역 높이 */
+  height: 14px;
+
+  margin: 0;
+
+  appearance: none;
+  -webkit-appearance: none;
+
+  background: transparent;
+  cursor: pointer;
+}
+
+/* 슬라이더 가로선 */
+#zoom-slider::-webkit-slider-runnable-track {
+  /* 선 두께 */
+  height: 1px;
+
+  /* 선 색 */
+  background: var(--ui-color);
+}
+
+/* 슬라이더 동그란 손잡이 */
+#zoom-slider::-webkit-slider-thumb {
+  /* 동그라미 크기 */
+  width: 13px;
+  height: 13px;
+
+  /* 동그라미를 가로선 중앙에 맞춤
+     동그라미 크기를 바꾸면 이것도 조절 필요 */
+  margin-top: -6px;
+
+  appearance: none;
+  -webkit-appearance: none;
+
+  /* 동그라미 테두리 */
+  border: 1px solid var(--ui-color);
+  border-radius: 50%;
+
+  /* 동그라미 내부 색 */
+  background: #fff;
+}
+
+/* =====================================================
+   8. POINT COUNT
+   자모의 물리점 개수
+   ===================================================== */
+
+.point-control {
+  /* Zoom과 Point Count 사이 거리 */
+  margin-top: 12px;
+
+  /* 글자와 슬라이더를 한 줄로 배치 */
+  display: flex;
+  align-items: center;
+
+  /* Point Count ↔ 슬라이더 사이 거리 */
+  gap: 10px;
+}
+
+/* Point Count 글자 */
+.point-label {
+  flex: 0 0 auto;
+
+  /* 글자 크기 */
+  font-size: 15px;
+}
+
+/* 슬라이더가 들어가는 영역 */
+#point-control {
+  flex: 1;
+  display: flex;
+  align-items: center;
+}
+
+/* Point Count 슬라이더 전체 */
+#point-control input {
+  flex: 1;
+  height: 14px;
+  margin: 0;
+
+  appearance: none;
+  -webkit-appearance: none;
+
+  background: transparent;
+  cursor: pointer;
+}
+
+/* Point Count 슬라이더 가로선 */
+#point-control input::-webkit-slider-runnable-track {
+  height: 1px;
+  background: var(--ui-color);
+}
+
+/* Point Count 슬라이더 동그란 손잡이 */
+#point-control input::-webkit-slider-thumb {
+  width: 13px;
+  height: 13px;
+  margin-top: -6px;
+
+  appearance: none;
+  -webkit-appearance: none;
+
+  border: 1px solid var(--ui-color);
+  border-radius: 50%;
+  background: #fff;
+}
+
+/* =====================================================
+   9. INVENTORY
+   배양된 개체 목록
+   ===================================================== */
+
+.inventory-control {
+  /* Inventory 전체 위치 */
+  position: fixed;
+  left: 30px;
+  bottom: 30px;
+
+  /* 위쪽 UI와 같은 가로 폭 */
+  width: var(--ui-width);
+
+  z-index: 20;
+}
+
+/* 펼쳐지는 개체 목록 영역 */
+.inventory-panel {
+  /* 닫혀 있을 때 높이 없음 */
+  height: 0;
+
+  /* 닫혀 있을 때 내용 숨김 */
+  overflow: hidden;
+
+  background: #fff;
+}
+
+/* Inventory가 열렸을 때 */
+.inventory-control.open .inventory-panel {
+  /* 펼쳐지는 목록 높이
+     숫자를 키우면 위로 더 길게 펼쳐짐 */
+  height: 450px;
+
+  /* 목록이 많아지면 이 영역 안에서만 세로 스크롤 */
+  overflow-y: auto;
+
+  /* 목록 위쪽 구분선 */
+  border-top: 1px dashed var(--ui-color);
+}
+
+/* Inventory 아래 고정 바 */
+.inventory-toggle {
+  width: 100%;
+  padding: 12px 4px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  border: 0;
+  border-top: 1px dashed var(--ui-color);
+  border-bottom: 1px dashed var(--ui-color);
+  background: #fff;
+
+  font-family: var(--ui-font);
+  color: var(--ui-color);
+
+  cursor: pointer;
+}
+
+/* Inventory 글자 */
+.inventory-title {
+  /* 글자 크기 */
+  font-size: 15px;
+
+  /* Inventory 글자 사이 간격 */
+  letter-spacing: 4px;
+}
+
+/* 오른쪽 화살표 */
+.inventory-arrow {
+  /* 화살표 크기 */
+  font-size: 12px;
+}
+
+/* 열렸을 때 화살표 방향 */
+.inventory-control.open .inventory-arrow {
+  transform: rotate(180deg);
+}
+
+/* 나중에 개체 썸네일이 세로로 쌓일 영역 */
+.inventory-list {
+  display: flex;
+  flex-direction: column;
+}
+
+/* 저장된 개체 한 칸 */
+.inventory-item {
+  width: 100%;
+  box-sizing: border-box;
+  border-bottom: 1px dashed var(--ui-color);
+}
+
+/* 개체 미리보기 캔버스 */
+.inventory-preview {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+
+/* =====================================================
+   10. RELEASE BUTTON
+   완성된 blob 풀어주기
+   ===================================================== */
+
+#release-button {
+  /* 버튼 이미지 크기 */
+  --release-width: 200px;
+  --release-height: 200px;
+
+  /* 화면 오른쪽 / 아래에서 떨어지는 거리 */
+  --release-right: 30px;
+  --release-bottom: 30px;
+
+  position: fixed;
+  right: var(--release-right);
+  bottom: var(--release-bottom);
+  z-index: 20;
+
+  width: var(--release-width);
+  height: var(--release-height);
+
+  padding: 0;
+  border: 0;
+  background: transparent;
+
+  /* 생성 전에는 버튼 숨김 */
+  display: none;
+
+  cursor: pointer;
+}
+
+/* 풀어주기 버튼 이미지 */
+#release-button img {
+  position: absolute;
+  inset: 0;
+
+  width: 100%;
+  height: 100%;
+
+  object-fit: contain;
+}
+
+/* 기본 이미지 */
+.release-default {
+  opacity: 1;
+}
+
+/* 호버 이미지 */
+.release-hover {
+  opacity: 0;
+}
+
+/* 마우스를 올렸을 때 이미지 교체 */
+#release-button:hover .release-default {
+  opacity: 0;
+}
+
+#release-button:hover .release-hover {
+  opacity: 1;
+}
+
+
+/* =====================================================
+   11. RELEASE TRANSITION
+   풀어주기 직후 표시되는 방출 전환 화면
+   ===================================================== */
+
+#release-transition {
+  /* 화면 전체를 덮는 전환 영역 */
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+
+  /* 방출 안내창을 화면 가운데 배치 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  /* 뒤 화면이 살짝 보이도록 처리 */
+  background: rgba(255, 255, 255, 0.7);
+}
+
+/* hidden 속성이 있을 때는 보이지 않게 함 */
+#release-transition[hidden] {
+  display: none;
+}
+
+/* 방출 안내창 */
+.release-transition-box {
+  padding: 20px 28px;
+
+  border: 1px solid var(--ui-color);
+  background: #fff;
+
+  font-family: var(--ui-font);
+  color: var(--ui-color);
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* 방출 안내 문구 */
+.release-transition-title {
+  font-size: 15px;
+  letter-spacing: 2px;
+}
+
+
+/* -----------------------------------------
+   방출 중 DOT 애니메이션
+   ----------------------------------------- */
+
+/* 애니메이션 영역 */
+.release-transition-preview {
+  width: 80px;
+  height: 70px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  margin-bottom: 14px;
+}
+
+/* DOT 스킨을 닮은 개체 */
+.release-dot {
+  position: relative;
+
+  width: 50px;
+  height: 50px;
+
+  border-radius: 50%;
+  background: #111;
+
+  animation: releaseDotWiggle 1.4s ease-in-out infinite alternate;
+}
+
+/* 눈 흰자 */
+.release-eye {
+  position: absolute;
+
+  width: 17px;
+  height: 17px;
+
+  left: 17px;
+  top: 15px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 50%;
+  background: #fff;
+}
+
+/* 눈동자 */
+.release-pupil {
+  width: 7px;
+  height: 7px;
+
+  border-radius: 50%;
+  background: #111;
+
+  animation: releasePupilMove 1.6s ease-in-out infinite alternate;
+}
+
+/* DOT 전체 꾸물거림 */
+@keyframes releaseDotWiggle {
+  from {
+    transform: translate(-2px, 1px) rotate(-3deg) scale(1);
+  }
+
+  to {
+    transform: translate(2px, -1px) rotate(3deg) scale(1.06);
+  }
+}
+
+/* 눈동자 움직임 */
+@keyframes releasePupilMove {
+  from {
+    transform: translate(-3px, 1px);
+  }
+
+  to {
+    transform: translate(3px, -1px);
+  }
 }
