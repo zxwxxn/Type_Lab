@@ -141,7 +141,7 @@
   /* 원 모양 */
   border: 1px solid var(--ui-color);
   border-radius: 50%;
-  background: transparent;
+  background: #fff;
 
   /* 버튼 글자 */
   font-family: var(--ui-font);
@@ -406,7 +406,7 @@ canvas {
   /* 버튼 모양 */
   border: 1px solid var(--ui-color);
   border-radius: 50%;
-  background: transparent;
+  background: #fff;
 
   /* 버튼 글자 */
   font-family: var(--ui-font);
@@ -687,7 +687,7 @@ canvas {
 .inventory-control.open .inventory-panel {
   /* 펼쳐지는 목록 높이
      숫자를 키우면 위로 더 길게 펼쳐짐 */
-  height: 450px;
+  height: 300px;
 
   /* 목록이 많아지면 이 영역 안에서만 세로 스크롤 */
   overflow-y: auto;
@@ -753,9 +753,10 @@ canvas {
 .inventory-preview {
   display: block;
   width: 100%;
-  height: auto;
+  height: 220px;
+  object-fit: contain;
+  object-position: center 20%;
 }
-
 
 /* =====================================================
    10. RELEASE BUTTON

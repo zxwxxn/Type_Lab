@@ -1708,16 +1708,16 @@ function renderInventoryItems() {
     inventoryItem.className =
       "inventory-item";
 
-    const previewCanvas =
-      document.createElement("canvas");
+    const previewImage =
+      document.createElement("img");
 
-    previewCanvas.className =
+    previewImage.className =
       "inventory-preview";
 
-    previewCanvas.width = 340;
-    previewCanvas.height = 200;
+    previewImage.src =
+      item.snapshot;
 
-    inventoryItem.appendChild(previewCanvas);
+    inventoryItem.appendChild(previewImage);
 
     inventoryList.appendChild(inventoryItem);
   }
@@ -1749,7 +1749,7 @@ function captureInventorySnapshot() {
 
   const snapshot = get(
     area.minX,
-    area.minY,
+    area.minY - 80,
     area.maxX - area.minX,
     area.maxY - area.minY
   );
@@ -3373,30 +3373,38 @@ function addPhysicsSpring(points, springs, pointIndexA, pointIndexB) {
   }
 
   
-  // -----------------------------------------
-  // 스킨 그리기
-  // -----------------------------------------
+// -----------------------------------------
+// 스킨 그리기
+// -----------------------------------------
 
-  function drawSkin(instance) {
-    noStroke();
-    fill(0, 220);   // 두번째 숫자는 Alpha 값
+function drawSkin(instance) {
+  noStroke();
 
-    // 실제 DOT와 방출 미리보기가 함께 사용하는 화면 표시 데이터
-    const renderDots = getDotRenderData(
-      instance.physicsPoints,
-      instance.physicsSprings,
-      instance.skinDots
+  // DOT 색상
+  const dotColor = color("#59ac00");
+
+  // DOT 투명도
+  // 0 = 완전 투명 / 255 = 완전 불투명
+  dotColor.setAlpha(210);
+
+  fill(dotColor);
+
+  // 실제 DOT와 방출 미리보기가 함께 사용하는 화면 표시 데이터
+  const renderDots = getDotRenderData(
+    instance.physicsPoints,
+    instance.physicsSprings,
+    instance.skinDots
+  );
+
+  // 계산된 DOT 그리기
+  for (const dot of renderDots) {
+    circle(
+      dot.x,
+      dot.y,
+      dot.size
     );
-
-    // 계산된 DOT 그리기
-    for (const dot of renderDots) {
-      circle(
-        dot.x,
-        dot.y,
-        dot.size
-      );
-    }
   }
+}
 
 
   // -----------------------------------------
