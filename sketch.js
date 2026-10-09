@@ -1453,9 +1453,13 @@ let draggedPoint = null;
 
 // 조작 UI
 let pointCountSlider;
+let zoomSlider;
 let textInput;
 let generateButton;
 let typeButton;
+
+// 현재 화면 줌 배율
+let viewZoom = 1;
 
 // 현재 생성된 개체의 스킨 색
 let currentSkinColor;
@@ -1608,6 +1612,18 @@ function setup() {
 
   // 캔버스를 브라우저 왼쪽 위부터 전체 화면에 배치
   canvas.position(0, 0);
+
+  // Zoom 슬라이더
+  zoomSlider =
+    document.getElementById("zoom-slider");
+
+  viewZoom =
+    2 - Number(zoomSlider.value) / 100
+
+  zoomSlider.addEventListener("input", function() {
+    viewZoom =
+      2 - Number(zoomSlider.value) / 100;
+  });
 
   // 각 edge 사이에 추가할 물리점 개수 (가장 오른쪽이 기본 pointcount)
   pointCountSlider = createSlider(0, 8, 1, 2);
@@ -2304,6 +2320,25 @@ const frames = [
   // 현재 마우스가 올라가 있는 자모 확인
   updateHoveredJamo();
 
+  // Zoom
+  // 화면 중심을 기준으로 개체 영역만 확대 / 축소
+  const zoomCenterX = width / 2;
+  const zoomCenterY = getCultureCenterY();
+
+  push();
+
+  translate(
+    zoomCenterX,
+    zoomCenterY
+  );
+
+  scale(viewZoom);
+
+  translate(
+    -zoomCenterX,
+    -zoomCenterY
+  );
+
   // -----------------------------------------
   // 풀어준 개체 물리 계산 + 그리기
   // 현재 배양 중인 개체보다 뒤에 표시
@@ -2436,7 +2471,10 @@ const frames = [
 
     pop();
   }
+
+    pop();
 }
+
 
 
 // =====================================================
